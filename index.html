@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Pesquisa de Películas • Pinheirinho Celulares</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root{
+  --azul:#1f4fd8;
+  --laranja:#ff7a00;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:Segoe UI, Arial, sans-serif;
+  background:linear-gradient(135deg,#dbe7ff,#eef3ff,#fff1e4,#ffd2a8);
+  background-attachment:fixed;
+}
+
+/* HEADER */
+.header{
+  text-align:center;
+  padding:40px 15px 30px;
+}
+
+.header img{
+  max-width:280px;
+  margin-bottom:25px;
+}
+
+/* SEARCH */
+.search{
+  display:flex;
+  justify-content:center;
+}
+
+.search input{
+  width:100%;
+  max-width:620px;
+  padding:18px 26px;
+  font-size:16px;
+  border-radius:50px;
+  border:3px solid var(--azul);
+  outline:none;
+  box-shadow:0 14px 30px rgba(0,0,0,.25);
+}
+
+.search input:focus{
+  border-color:var(--laranja);
+}
+
+/* RESULTS */
+.container{
+  max-width:1250px;
+  margin:auto;
+  padding:20px 15px 80px;
+}
+
+.card{
+  background:#fff;
+  border-radius:18px;
+  padding:22px;
+  margin-bottom:18px;
+  box-shadow:0 14px 30px rgba(0,0,0,.22);
+  border-left:8px solid var(--azul);
+}
+
+.modelo{
+  font-size:20px;
+  font-weight:800;
+  color:var(--azul);
+}
+
+.marca{
+  font-size:14px;
+  color:#666;
+  margin:6px 0 12px;
+}
+
+.adaptacoes{
+  line-height:1.8;
+  color:#333;
+}
+
+.vazio{
+  text-align:center;
+  padding:40px;
+  color:#444;
+}
+
+/* FOOTER */
+.footer{
+  background:rgba(255,255,255,.7);
+  backdrop-filter:blur(6px);
+  border-top:1px solid rgba(0,0,0,.08);
+  text-align:center;
+  padding:18px 10px;
+  font-size:14px;
+}
+
+.footer strong{color:var(--azul)}
+.footer span{display:block;font-size:13px;color:#777;margin-top:5px}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <img src="./amg/logo.png" alt="Pinheirinho Celulares">
+  <div class="search">
+    <input id="busca" placeholder="Digite o modelo do celular ou da película">
+  </div>
+</div>
+
+<div class="container" id="resultado"></div>
+
+<div class="footer">
+  Desenvolvido e programado por <strong>Mattheus Avilar</strong>
+  <span>Versão 1.1 • Beta</span>
+</div>
+
+<script>
+// ========= FUNÇÃO DE NORMALIZAÇÃO (BUSCA INTELIGENTE) =========
+function normalizar(txt){
+  return txt
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9]/g,"");
+}
+
+// ================= BASE DE DADOS =================
+const dados = [
+
+/* ================= SAMSUNG ================= */
+{marca:"Samsung",modelo:"A01",adaptacoes:["Xiaomi Play","Samsung A40"]},
+{marca:"Samsung",modelo:"A02",adaptacoes:["Samsung A02S","Samsung A03","Samsung A03S","Samsung A03 Core","Samsung A04","Samsung A04S","Samsung A04E","Samsung A12","Samsung A13","Samsung M23","Samsung A70","Xiaomi 9A","Xiaomi 9A Sport","Xiaomi 9i","Xiaomi 9C","Motorola E7","Motorola E7 Power"]},
+{marca:"Samsung",modelo:"A05",adaptacoes:["Xiaomi 13C","Xiaomi C65","TCL 40","Realme C33","Realme Note 50","Realme Note 60"]},
+{marca:"Samsung",modelo:"A10",adaptacoes:["Samsung A10S","Samsung M10","Motorola G8 Play","Motorola G8+","Motorola G7","LG K40S","Xiaomi Redmi 8","Xiaomi Redmi 8A"]},
+{marca:"Samsung",modelo:"A11",adaptacoes:["Motorola G41","Motorola G51","Xiaomi Redmi Note 10","Xiaomi Redmi 11 Lite","Xiaomi Redmi Note 9","Motorola G52","Realme 7 Pro","Realme 7"]},
+{marca:"Samsung",modelo:"A12",adaptacoes:["Samsung M12","Samsung A02","Samsung A02S","Samsung A03","Samsung A03 Core","Samsung A03S","Samsung A04","Samsung A04E","Samsung A04S","Samsung A13","Samsung A23 5G","Samsung A70","Motorola E7","Motorola E7 Power"]},
+{marca:"Samsung",modelo:"A13",adaptacoes:["Samsung M13","Samsung A12","Samsung M12","Samsung A02","Samsung A02S","Samsung A03","Samsung A03 Core","Samsung A03S","Samsung A04","Samsung A04E","Samsung A04S","Samsung A23","Samsung A70","Motorola E7","Motorola E7 Power"]},
+{marca:"Samsung",modelo:"A14 4G",adaptacoes:["Samsung A22 5G","Samsung M14","Motorola One Fusion"]},
+{marca:"Samsung",modelo:"A14 5G",adaptacoes:["Samsung A22 5G","Samsung M14","Motorola One Fusion"]},
+{marca:"Samsung",modelo:"A15",adaptacoes:["Samsung M15","Samsung M24","Samsung M25","Samsung A34 5G"]},
+{marca:"Samsung",modelo:"A20",adaptacoes:["Samsung A30","Samsung A50","Samsung A30S","Samsung A50S","Samsung M31","Samsung M30S"]},
+{marca:"Samsung",modelo:"A20S",adaptacoes:["Samsung A32 5G","Motorola One Fusion"]},
+{marca:"Samsung",modelo:"A21",adaptacoes:["Samsung A21S","Samsung A71","Motorola G22","Xiaomi Redmi Note 11","Xiaomi Poco X3 GT"]},
+{marca:"Samsung",modelo:"A22",adaptacoes:["Samsung A31","Samsung A32 4G","Samsung M31","Samsung M32","Samsung A33","Samsung M22"]},
+{marca:"Samsung",modelo:"A22 5G",adaptacoes:["Samsung A32 5G","Samsung A14","Samsung M14"]},
+{marca:"Samsung",modelo:"A23",adaptacoes:["Samsung A02","Samsung A02S","Samsung A03","Samsung A03 Core","Samsung A03S","Samsung A04","Samsung A04E","Samsung A04S","Samsung A70","Samsung A32","Samsung A22","Realme C2"]},
+{marca:"Samsung",modelo:"A24",adaptacoes:["Apple iPhone 15 Pro Max","Samsung A25","Samsung A15","Samsung M15"]},
+{marca:"Samsung",modelo:"A25",adaptacoes:["Apple iPhone 15 Pro Max","Samsung A25","Samsung A15","Samsung M15"]},
+{marca:"Samsung",modelo:"A33",adaptacoes:["Samsung M21S","Samsung M31","Samsung M22","Samsung M32","Samsung A31","Samsung A32 4G"]},
+{marca:"Samsung",modelo:"A34",adaptacoes:["Apple iPhone 14 Pro Max","Samsung M34","Samsung M15"]},
+{marca:"Samsung",modelo:"A35",adaptacoes:["Samsung A55 5G","Samsung M35"]},
+{marca:"Samsung",modelo:"A50",adaptacoes:["Samsung A20","Samsung A30","Samsung A50S","Samsung A30S"]},
+{marca:"Samsung",modelo:"A51",adaptacoes:["Samsung A52","Samsung A52S","Samsung A53 5G","Samsung S20 FE"]},
+{marca:"Samsung",modelo:"A53",adaptacoes:["Samsung A52S","Samsung S20 FE","Motorola Edge 30","Xiaomi Poco M4 Pro 4G"]},
+{marca:"Samsung",modelo:"A54",adaptacoes:["Samsung S21 FE","Samsung S23 FE"]},
+{marca:"Samsung",modelo:"A70",adaptacoes:["Samsung A12","Samsung M12","Samsung A02","Samsung A03","Samsung A03S","Samsung A03 Core","Samsung A13 4G","Samsung A13 5G"]},
+/* ===== CONTINUAÇÃO SAMSUNG ===== */
+{marca:"Samsung",modelo:"A71",adaptacoes:["Samsung A21","Samsung A21S","Motorola G22","Xiaomi Redmi Note 11","Xiaomi Poco X3"]},
+{marca:"Samsung",modelo:"A72",adaptacoes:["Samsung A52","Samsung A52S","Samsung S20 FE"]},
+{marca:"Samsung",modelo:"A73",adaptacoes:["Samsung A53","Samsung A54","Samsung S21 FE"]},
+{marca:"Samsung",modelo:"M12",adaptacoes:["Samsung A12","Samsung A02","Samsung A02S","Samsung A03","Samsung A03S","Samsung A04","Samsung A04S","Samsung A13"]},
+{marca:"Samsung",modelo:"M13",adaptacoes:["Samsung A13","Samsung A12","Samsung A04","Samsung A04S"]},
+{marca:"Samsung",modelo:"M14",adaptacoes:["Samsung A14 4G","Samsung A14 5G","Samsung A22 5G"]},
+{marca:"Samsung",modelo:"M15",adaptacoes:["Samsung A15","Samsung A24","Samsung A25"]},
+{marca:"Samsung",modelo:"M21",adaptacoes:["Samsung A21","Samsung A21S"]},
+{marca:"Samsung",modelo:"M22",adaptacoes:["Samsung A22","Samsung A32 4G"]},
+{marca:"Samsung",modelo:"M23",adaptacoes:["Samsung A13","Samsung A23","Samsung A32 5G"]},
+{marca:"Samsung",modelo:"M31",adaptacoes:["Samsung A20","Samsung A30","Samsung A31","Samsung A32"]},
+{marca:"Samsung",modelo:"M32",adaptacoes:["Samsung A22","Samsung A32 4G"]},
+{marca:"Samsung",modelo:"M34",adaptacoes:["Samsung A34","Samsung A54"]},
+{marca:"Samsung",modelo:"M35",adaptacoes:["Samsung A35","Samsung A55"]},
+
+/* ================= MOTOROLA ================= */
+{marca:"Motorola",modelo:"Moto E6 Plus",adaptacoes:["Moto E6S","Moto E7"]},
+{marca:"Motorola",modelo:"Moto E7",adaptacoes:["Samsung A02","Samsung A03","Samsung A12","Samsung A13","Samsung M12"]},
+{marca:"Motorola",modelo:"Moto E7 Power",adaptacoes:["Samsung A02","Samsung A03","Samsung A12","Samsung A13","Samsung M12"]},
+{marca:"Motorola",modelo:"Moto E13",adaptacoes:["Moto E22","Moto E32","Samsung A03","Samsung A04","Samsung A14"]},
+{marca:"Motorola",modelo:"Moto E22",adaptacoes:["Moto E13","Moto E32","Samsung A03","Samsung A04"]},
+{marca:"Motorola",modelo:"Moto E32",adaptacoes:["Moto E22","Moto E13","Moto G04","Moto G14","Samsung A04","Samsung A14"]},
+{marca:"Motorola",modelo:"Moto G04",adaptacoes:["Moto G14","Moto E32","Samsung A14","Samsung A04"]},
+{marca:"Motorola",modelo:"Moto G10",adaptacoes:["Moto G20","Moto G30","Samsung A12","Samsung A13"]},
+{marca:"Motorola",modelo:"Moto G14",adaptacoes:["Moto G04","Moto E32","Samsung A14"]},
+{marca:"Motorola",modelo:"Moto G20",adaptacoes:["Moto G10","Moto G30","Samsung A12","Samsung A13"]},
+{marca:"Motorola",modelo:"Moto G22",adaptacoes:["Moto G41","Samsung A21","Samsung A71"]},
+{marca:"Motorola",modelo:"Moto G23",adaptacoes:["Moto G13","Moto G14","Samsung A14"]},
+{marca:"Motorola",modelo:"Moto G30",adaptacoes:["Moto G10","Moto G20","Samsung A12","Samsung A13"]},
+{marca:"Motorola",modelo:"Moto G31",adaptacoes:["Moto G41","Samsung A32","Samsung A22"]},
+{marca:"Motorola",modelo:"Moto G32",adaptacoes:["Moto G42","Moto G52","Samsung A23","Samsung A33"]},
+{marca:"Motorola",modelo:"Moto G34",adaptacoes:["Moto G54","Samsung A15","Samsung A25"]},
+{marca:"Motorola",modelo:"Moto G41",adaptacoes:["Moto G22","Moto G31","Samsung A11"]},
+{marca:"Motorola",modelo:"Moto G42",adaptacoes:["Moto G32","Moto G52","Samsung A23","Samsung A33"]},
+{marca:"Motorola",modelo:"Moto G52",adaptacoes:["Moto G32","Moto G42","Samsung A11","Samsung A33"]},
+{marca:"Motorola",modelo:"Moto G54",adaptacoes:["Moto G34","Samsung A15","Samsung A25"]},
+{marca:"Motorola",modelo:"Moto G60",adaptacoes:["Moto G40","Samsung A32","Samsung A22"]},
+{marca:"Motorola",modelo:"Moto G71",adaptacoes:["Moto G52","Samsung A33","Samsung A53"]},
+{marca:"Motorola",modelo:"Moto G82",adaptacoes:["Moto G52","Samsung A53","Samsung A54"]},
+{marca:"Motorola",modelo:"Moto G100",adaptacoes:["Moto Edge 20","Samsung S20 FE"]},
+{marca:"Motorola",modelo:"Moto Edge 20",adaptacoes:["Moto G100","Samsung S20 FE"]},
+{marca:"Motorola",modelo:"Moto Edge 30",adaptacoes:["Samsung A53","Samsung A54"]},
+{marca:"Motorola",modelo:"Moto Edge 40",adaptacoes:["Samsung A54","Samsung S23 FE"]},
+{marca:"Motorola",modelo:"Moto Edge 50",adaptacoes:["Samsung A55","Samsung S24 FE"]},
+/* ================= XIAOMI / REDMI ================= */
+{marca:"Xiaomi",modelo:"Redmi 9A",adaptacoes:["Samsung A02","Samsung A03","Samsung A12","Motorola E7"]},
+{marca:"Xiaomi",modelo:"Redmi 9C",adaptacoes:["Samsung A02","Samsung A03","Samsung A12","Motorola E7"]},
+{marca:"Xiaomi",modelo:"Redmi 10A",adaptacoes:["Samsung A04","Samsung A14","Moto E13"]},
+{marca:"Xiaomi",modelo:"Redmi 10C",adaptacoes:["Samsung A05","Moto G23","Moto G14"]},
+{marca:"Xiaomi",modelo:"Redmi 12",adaptacoes:["Samsung A15","Samsung A25","Moto G34"]},
+{marca:"Xiaomi",modelo:"Redmi Note 9",adaptacoes:["Samsung A11","Samsung A21","Moto G22"]},
+{marca:"Xiaomi",modelo:"Redmi Note 10",adaptacoes:["Samsung A11","Samsung A21","Moto G22"]},
+{marca:"Xiaomi",modelo:"Redmi Note 10 Pro",adaptacoes:["Samsung A52","Samsung A52S","Samsung S20 FE"]},
+{marca:"Xiaomi",modelo:"Redmi Note 11",adaptacoes:["Samsung A21","Samsung A71","Moto G22"]},
+{marca:"Xiaomi",modelo:"Redmi Note 12",adaptacoes:["Samsung A23","Samsung A33","Moto G32"]},
+{marca:"Xiaomi",modelo:"Redmi 13C",adaptacoes:["Samsung A05","Samsung A15","Moto G34"]},
+{marca:"Xiaomi",modelo:"Poco X3",adaptacoes:["Samsung A21","Samsung A71","Moto G22"]},
+{marca:"Xiaomi",modelo:"Poco X3 Pro",adaptacoes:["Samsung A52","Samsung A53","Samsung S20 FE"]},
+{marca:"Xiaomi",modelo:"Poco M4 Pro",adaptacoes:["Samsung A53","Moto G71"]},
+{marca:"Xiaomi",modelo:"Poco C65",adaptacoes:["Samsung A05","Moto G23"]},
+
+/* ================= INFINIX ================= */
+{marca:"Infinix",modelo:"Smart 7",adaptacoes:["Samsung A03","Samsung A04","Moto E13"]},
+{marca:"Infinix",modelo:"Smart 8",adaptacoes:["Moto G04","Moto G14","Redmi 13C"]},
+{marca:"Infinix",modelo:"Smart 10",adaptacoes:["Moto G24","Moto G34","Samsung A15"]},
+{marca:"Infinix",modelo:"Hot 11",adaptacoes:["Samsung A12","Samsung A13","Moto G10"]},
+{marca:"Infinix",modelo:"Hot 12",adaptacoes:["Samsung A13","Samsung A23","Moto G22"]},
+{marca:"Infinix",modelo:"Hot 30",adaptacoes:["Samsung A15","Samsung A25","Moto G34"]},
+{marca:"Infinix",modelo:"Hot 40",adaptacoes:["Samsung A25","Moto G34","Redmi 13C"]},
+
+/* ================= OUTROS ================= */
+{marca:"Realme",modelo:"C33",adaptacoes:["Samsung A05","Redmi 13C"]},
+{marca:"Realme",modelo:"Note 50",adaptacoes:["Samsung A05","Redmi 13C"]},
+{marca:"Tecno",modelo:"Spark 10",adaptacoes:["Samsung A15","Moto G34"]},
+{marca:"Nokia",modelo:"C21",adaptacoes:["Samsung A03","Moto E13"]},
+
+]; // ===== FIM DA BASE =====
+
+// ================= RENDERIZAÇÃO =================
+const resultado = document.getElementById("resultado");
+const busca = document.getElementById("busca");
+
+function render(filtro=""){
+  resultado.innerHTML="";
+  const f = normalizar(filtro);
+
+  const encontrados = dados.filter(d=>{
+    const texto = normalizar(
+      d.marca+" "+d.modelo+" "+d.adaptacoes.join(" ")
+    );
+    return texto.includes(f);
+  });
+
+  if(encontrados.length===0){
+    resultado.innerHTML="<div class='vazio'>Nenhum modelo encontrado.</div>";
+    return;
+  }
+
+  encontrados.forEach(d=>{
+    const card = document.createElement("div");
+    card.className="card";
+    card.innerHTML=`
+      <div class="modelo">${d.modelo}</div>
+      <div class="marca">${d.marca}</div>
+      <div class="adaptacoes"><strong>Compatível com:</strong><br>${d.adaptacoes.join(", ")}</div>
+    `;
+    resultado.appendChild(card);
+  });
+}
+
+busca.addEventListener("input",e=>render(e.target.value));
+render();
+
+</script>
+</body>
+</html>
