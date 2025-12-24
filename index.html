@@ -132,13 +132,13 @@ body{
 
 <div class="container" id="resultado"></div>
 
-<footer class="footer">
-  <strong>Pinheirinho Celulares</strong>
-  <span>Desenvolvido por Mattheus Avilar • Versão 1.5</span>
-</footer>
+<div class="footer">
+  Desenvolvido por <strong>Mattheus Avilar</strong>
+  <span>Versão 1.5 • Pinheirinho Celulares</span>
+</div>
 
 <script>
-// ========= FUNÇÃO DE NORMALIZAÇÃO (BUSCA INTELIGENTE) =========
+// ========= FUNÇÃO DE NORMALIZAÇÃO =========
 function normalizar(txt){
   return txt
     .toLowerCase()
@@ -298,7 +298,7 @@ const dados = [
 {marca:"Tecno",modelo:"KG5J",adaptacoes:["Moto G9 Play"]},
 {marca:"Intel",modelo:"A70",adaptacoes:["Samsung A22 5G","Samsung A12","Samsung A70"]},
 
-]; // ===== FIM DA BASE =====
+];
 
 // ================= RENDERIZAÇÃO =================
 const resultado = document.getElementById("resultado");
@@ -326,13 +326,23 @@ function render(filtro=""){
     card.innerHTML=`
       <div class="modelo">${d.modelo}</div>
       <div class="marca">${d.marca}</div>
-      <div class="adaptacoes"><strong>Compatível com:</strong><br>${d.adaptacoes.join(", ")}</div>
+      <div class="adaptacoes">
+        <strong>Compatível com:</strong><br>
+        ${d.adaptacoes.join(", ")}
+      </div>
     `;
     resultado.appendChild(card);
   });
 }
 
+// ========= EVENTOS =========
+busca.addEventListener("input", () => {
+  render(busca.value);
+});
+
+// ========= RENDER INICIAL =========
+render();
 </script>
+
 </body>
 </html>
-
