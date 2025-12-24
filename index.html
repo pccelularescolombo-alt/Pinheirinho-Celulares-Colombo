@@ -7,8 +7,8 @@
 
 <style>
 :root{
-  --azul:#0d3bff;      /* azul mais vivo */
-  --laranja:#ff6a00;   /* laranja mais forte */
+  --azul:#0d3bff;
+  --laranja:#ff6a00;
 }
 
 *{box-sizing:border-box}
@@ -51,10 +51,8 @@ body{
   border-radius:50px;
   border:3px solid var(--azul);
   outline:none;
-
   background:rgba(255,255,255,.75);
   backdrop-filter:blur(8px);
-
   box-shadow:0 16px 35px rgba(0,0,0,.25);
 }
 
@@ -73,11 +71,9 @@ body{
 .card{
   background:rgba(255,255,255,.72);
   backdrop-filter:blur(10px);
-
   border-radius:20px;
   padding:22px;
   margin-bottom:18px;
-
   box-shadow:0 18px 40px rgba(0,0,0,.25);
   border-left:9px solid var(--azul);
 }
@@ -120,8 +116,22 @@ body{
   display:block;
   font-size:13px;
   color:#666;
-  margin-top:5px
+  margin-top:5px;
 }
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <img src="./amg/logo.png" alt="Pinheirinho Celulares">
+  <div class="search">
+    <input id="busca" placeholder="Digite o modelo do celular ou da película">
+  </div>
+</div>
+
+<div class="container" id="resultado"></div>
+
 
 <script>
 // ========= FUNÇÃO DE NORMALIZAÇÃO (BUSCA INTELIGENTE) =========
@@ -324,6 +334,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
