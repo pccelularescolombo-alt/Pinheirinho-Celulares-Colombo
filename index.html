@@ -146,6 +146,14 @@ function normalizar(txt){
     .replace(/[^a-z0-9]/g,"");
 }
 
+  ${d.adaptacoes.length 
+  ? d.adaptacoes.join(", ") 
+  : "Sem adaptações cadastradas"}
+}
+
+resultado.innerHTML = `<div class="marca">${encontrados.length} resultados encontrados</div>`;
+}
+
 // ================= BASE DE DADOS =================
 const dados = [
 
@@ -346,4 +354,5 @@ render();
 
 </body>
 </html>
+
 
