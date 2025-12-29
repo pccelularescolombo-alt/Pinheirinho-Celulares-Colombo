@@ -6,20 +6,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-/* ================= VARIÁVEIS ================= */
 :root{
   --azul:#0d3bff;
   --laranja:#ff6a00;
 }
 
-/* ================= RESET ================= */
 *{
   box-sizing:border-box;
   margin:0;
   padding:0;
 }
 
-/* ================= BODY ================= */
 body{
   font-family:Segoe UI, Arial, sans-serif;
   background:linear-gradient(
@@ -32,7 +29,6 @@ body{
   background-attachment:fixed;
 }
 
-/* ================= HEADER ================= */
 .header{
   text-align:center;
   padding:40px 15px 30px;
@@ -43,7 +39,6 @@ body{
   margin-bottom:25px;
 }
 
-/* ================= SEARCH ================= */
 .search{
   display:flex;
   justify-content:center;
@@ -58,17 +53,9 @@ body{
   border:3px solid var(--azul);
   outline:none;
   background:rgba(255,255,255,.8);
-  backdrop-filter:blur(10px);
   box-shadow:0 18px 40px rgba(0,0,0,.25);
-  transition:.25s;
 }
 
-.search input:focus{
-  border-color:var(--laranja);
-  box-shadow:0 20px 45px rgba(255,106,0,.4);
-}
-
-/* ================= RESULTADOS ================= */
 .container{
   max-width:1250px;
   margin:auto;
@@ -77,7 +64,6 @@ body{
 
 .card{
   background:rgba(255,255,255,.75);
-  backdrop-filter:blur(12px);
   border-radius:22px;
   padding:22px;
   margin-bottom:18px;
@@ -102,20 +88,17 @@ body{
   line-height:1.7;
 }
 
-/* ================= VAZIO ================= */
 .vazio{
   text-align:center;
   padding:40px;
   font-weight:600;
 }
 
-/* ================= FOOTER ================= */
 .footer{
   text-align:center;
   padding:18px 10px;
   font-size:14px;
   background:rgba(255,255,255,.6);
-  backdrop-filter:blur(12px);
   border-top:1px solid rgba(0,0,0,.1);
 }
 
@@ -127,22 +110,18 @@ body{
 
 <body>
 
-<!-- ================= LOGO ================= -->
 <div class="header">
- <img src="amg/logo.png" alt="Pinheirinho Celulares" class="logo">
-
+  <img src="amg/logo.png" alt="Pinheirinho Celulares" class="logo">
   <div class="search">
-    <input id="busca" placeholder="Digite o modelo do celular ou da película">
+    <input id="busca" placeholder="Digite o modelo do celular">
   </div>
 </div>
 
-<!-- ================= RESULTADOS ================= -->
 <div class="container" id="resultado"></div>
 
-<!-- ================= RODAPÉ ================= -->
 <div class="footer">
-  Desenvolvido por <strong>Mattheus Avilar</strong>
-  <div>Versão 1.5 • Base não final</div>
+  Desenvolvido por <strong>Mattheus Avilar</strong><br>
+  Versão 1.5 • Base não final
 </div>
 
 <script>
@@ -158,7 +137,8 @@ const busca = document.getElementById("busca");
 const resultado = document.getElementById("resultado");
 
 /* =================================================
-  ADICIONE OS MODELOS AQUI
+  👉 COLE TODOS OS MODELOS AQUI
+  (Samsung, Motorola, Xiaomi, etc.)
 ================================================== */
 const dados = [
 
@@ -196,7 +176,7 @@ const dados = [
 {marca:"Samsung",modelo:"A73",adaptacoes:["Samsung A53","Samsung A54","Samsung S21 FE"]},
 {marca:"Samsung",modelo:"M12",adaptacoes:["Samsung A12","Samsung A02","Samsung A02S","Samsung A03","Samsung A03S","Samsung A04","Samsung A04S","Samsung A13"]},
 {marca:"Samsung",modelo:"M13",adaptacoes:["Samsung A13","Samsung A12","Samsung A04","Samsung A04S"]},
-{marca:"Samsung",modelo:"M14",adaptacoes:["Samsung A14 4G","Samsung A14 5G","Samsung A22 5G"]},
+{marca:"Samsung",modelo:"M14",adaptacoes:["Samsung A14","Samsung A22 5G"]},
 {marca:"Samsung",modelo:"M15",adaptacoes:["Samsung A15","Samsung A24","Samsung A25"]},
 {marca:"Samsung",modelo:"M21",adaptacoes:["Samsung A21","Samsung A21S"]},
 {marca:"Samsung",modelo:"M22",adaptacoes:["Samsung A22","Samsung A32 4G"]},
@@ -330,20 +310,24 @@ const dados = [
 {marca:"Oscal",modelo:"C80",adaptacoes:["Moto G8 Power Lite"]},
 {marca:"Tecno",modelo:"KG5J",adaptacoes:["Moto G9 Play"]},
 {marca:"Intel",modelo:"A70",adaptacoes:["Samsung A22 5G","Samsung A12","Samsung A70"]},
-
 ];
 
-/* ================= RENDER ================= */
+/* ========= RENDER (FILTRA SÓ ADAPTAÇÕES) ========= */
 function render(filtro=""){
   const f = normalizar(filtro);
 
+  if(!f){
+    resultado.innerHTML = `<div class="vazio">Digite um modelo para buscar compatibilidade.</div>`;
+    return;
+  }
+
   const encontrados = dados.filter(d =>
-    normalizar(d.marca + d.modelo + d.adaptacoes.join(" "))
-    .includes(f)
+    d.adaptacoes &&
+    d.adaptacoes.some(a => normalizar(a).includes(f))
   );
 
   if(!encontrados.length){
-    resultado.innerHTML = `<div class="vazio">Nenhum modelo encontrado.</div>`;
+    resultado.innerHTML = `<div class="vazio">Nenhuma adaptação compatível encontrada.</div>`;
     return;
   }
 
@@ -360,10 +344,7 @@ function render(filtro=""){
 }
 
 busca.addEventListener("input", e => render(e.target.value));
-render();
 </script>
 
 </body>
 </html>
-
-
