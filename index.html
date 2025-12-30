@@ -313,7 +313,7 @@ const dados = [
 {marca:"Intel",modelo:"A70",adaptacoes:["Samsung A22 5G","Samsung A12","Samsung A70"]},
 ];
 
-/* ========= RENDER (FILTRA SÓ ADAPTAÇÕES) ========= */
+/* ========= RENDER (MODELO + ADAPTAÇÕES) ========= */
 function render(filtro=""){
   const f = normalizar(filtro);
 
@@ -322,13 +322,16 @@ function render(filtro=""){
     return;
   }
 
-  const encontrados = dados.filter(d =>
-    d.adaptacoes &&
-    d.adaptacoes.some(a => normalizar(a).includes(f))
-  );
+  const encontrados = dados.filter(d => {
+    const modeloPrincipal = normalizar(d.modelo).includes(f);
+    const adaptacao = d.adaptacoes.some(a =>
+      normalizar(a).includes(f)
+    );
+    return modeloPrincipal || adaptacao;
+  });
 
   if(!encontrados.length){
-    resultado.innerHTML = `<div class="vazio">Nenhuma adaptação compatível encontrada.</div>`;
+    resultado.innerHTML = `<div class="vazio">Nenhuma compatibilidade encontrada.</div>`;
     return;
   }
 
@@ -349,4 +352,3 @@ busca.addEventListener("input", e => render(e.target.value));
 
 </body>
 </html>
-
