@@ -1,0 +1,118 @@
+COMO CONFIGURAR O BANCO DE DADOS (Firebase) — PASSO A PASSO
+==============================================================
+
+1) Criar o projeto
+   - Acesse https://console.firebase.google.com
+   - Clique em "Adicionar projeto", dê um nome (ex: pinheirinho-pelicula)
+     e siga o assistente (pode desativar o Google Analytics, não é
+     necessário). É gratuito.
+
+2) Ativar o Firestore
+   - No menu lateral, clique em "Firestore Database" > "Criar banco de
+     dados".
+   - Escolha "Iniciar no modo de produção" e a localização mais perto
+     de você (ex: southamerica-east1 / São Paulo).
+
+3) Pegar as chaves de configuração
+   - Clique no ícone de engrenagem (⚙) > "Configurações do projeto".
+   - Em "Seus apps", clique no ícone </> (Web) e registre um app
+     (não precisa marcar "Firebase Hosting").
+   - Vai aparecer um bloco "firebaseConfig" com apiKey, authDomain,
+     projectId, etc. Copie esses valores para o topo do script.js,
+     substituindo os textos "COLE_AQUI_SUA_API_KEY" e afins.
+
+4) Configurar as regras de segurança
+   - Ainda no Firestore Database, vá na aba "Regras".
+   - Apague o conteúdo e cole exatamente isto:
+
+-----------------------------------------------------------------
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /avaliacoes/{docId} {
+      allow read: if true;
+
+      // Só permite CRIAR um documento novo com exatamente um voto:
+      // {likes:1, dislikes:0} ou {likes:0, dislikes:1}. Nunca os dois
+      // de uma vez, nunca outro valor.
+      allow create: if request.resource.data.keys().hasOnly(['likes', 'dislikes'])
+                    && request.resource.data.likes is int
+                    && request.resource.data.dislikes is int
+                    && (
+                         (request.resource.data.likes == 1 && request.resource.data.dislikes == 0) ||
+                         (request.resource.data.likes == 0 && request.resource.data.dislikes == 1)
+                       );
+
+      // Só permite ATUALIZAR em uma das 6 formas de UM clique de voto:
+      // dar like, dar deslike, desfazer like, desfazer deslike, ou
+      // trocar de um lado pro outro (like->deslike ou deslike->like).
+      // Nunca deixa os números ficarem negativos nem mudar mais de 1
+      // voto por vez.
+      allow update: if request.resource.data.keys().hasOnly(['likes', 'dislikes'])
+                    && request.resource.data.likes is int
+                    && request.resource.data.dislikes is int
+                    && request.resource.data.likes >= 0
+                    && request.resource.data.dislikes >= 0
+                    && (
+                         // deu like (dislikes não muda)
+                         (request.resource.data.likes == resource.data.likes + 1 &&
+                          request.resource.data.dislikes == resource.data.dislikes) ||
+                         // deu deslike (likes não muda)
+                         (request.resource.data.dislikes == resource.data.dislikes + 1 &&
+                          request.resource.data.likes == resource.data.likes) ||
+                         // desfez o like (dislikes não muda)
+                         (request.resource.data.likes == resource.data.likes - 1 &&
+                          request.resource.data.dislikes == resource.data.dislikes) ||
+                         // desfez o deslike (likes não muda)
+                         (request.resource.data.dislikes == resource.data.dislikes - 1 &&
+                          request.resource.data.likes == resource.data.likes) ||
+                         // trocou de deslike pra like
+                         (request.resource.data.likes == resource.data.likes + 1 &&
+                          request.resource.data.dislikes == resource.data.dislikes - 1) ||
+                         // trocou de like pra deslike
+                         (request.resource.data.dislikes == resource.data.dislikes + 1 &&
+                          request.resource.data.likes == resource.data.likes - 1)
+                       );
+
+      allow delete: if false;
+    }
+
+    // Nega tudo que não seja explicitamente liberado acima (mesma ideia
+    // da regra padrão do Firebase, só que agora com a exceção de cima).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+-----------------------------------------------------------------
+
+   - Clique em "Publicar".
+
+O QUE ESSAS REGRAS FAZEM
+-------------------------
+- Qualquer pessoa pode LER as avaliações (necessário para mostrar o %
+  na tela).
+- Só é possível ESCREVER incrementando like ou dislike de 1 em 1 —
+  ninguém consegue, mexendo no navegador, zerar os votos de um
+  concorrente ou inflar um número direto.
+
+LIMITAÇÃO IMPORTANTE (leia com atenção)
+-----------------------------------------
+Como o site não tem login/cadastro de loja, o controle de "só um voto
+por loja" é feito salvando um marcador no navegador de quem votou
+(localStorage). Isso impede o clique duplo acidental, mas alguém com
+conhecimento técnico ainda poderia votar várias vezes limpando os
+dados do navegador ou usando o console do desenvolvedor. Para o uso
+esperado (algumas lojas parceiras avaliando de boa fé) isso é
+suficiente. Se no futuro isso virar um problema (votos suspeitos em
+massa), a solução é adicionar um login simples por loja (Firebase
+Authentication) — aí dá pra exigir 1 voto por conta, não por
+navegador. Posso implementar isso depois se precisar.
+
+CUSTO
+-----
+O plano gratuito do Firestore (Spark) permite bem mais leituras e
+escritas por dia do que uma loja de películas deve gerar. Não deve
+custar nada, mas se quiser, é possível acompanhar o uso no painel
+"Uso e faturamento" do console do Firebase.

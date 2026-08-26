@@ -601,8 +601,22 @@ async function carregarAvaliacoes() {
   } finally {
     avaliacoesCarregadas = true;
     renderResultados(buscaInput.value);
+    if (typeof atualizarPainelSeAberto === 'function') atualizarPainelSeAberto();
   }
 }
+
+// Mapa slug -> texto legível (marca/modelo de origem + nome da adaptação),
+// usado no painel de ranking. É recalculado uma vez a partir de "dados",
+// já que o Firestore só guarda os números (likes/dislikes), não o texto.
+const slugParaTexto = {};
+dados.forEach(d => {
+  if (!d.adaptacoes) return;
+  d.adaptacoes.forEach(a => {
+    if (a === 'Sem Adaptação') return;
+    const slug = slugAvaliacao(d.marca, d.modelo, a);
+    slugParaTexto[slug] = { origem: `${d.marca} ${d.modelo}`, adaptacao: a };
+  });
+});
 
 async function votar(slug, tipo, event) {
   if (event) event.stopPropagation();
@@ -611,23 +625,40 @@ async function votar(slug, tipo, event) {
     return;
   }
   const chaveLocal = 'voto_' + slug;
-  if (localStorage.getItem(chaveLocal)) {
-    return; // esta loja/navegador já votou nesta adaptação
-  }
-  const campo = tipo === 'like' ? 'likes' : 'dislikes';
+  const votoAtual = localStorage.getItem(chaveLocal); // 'like' | 'dislike' | null
   const ref = db.collection('avaliacoes').doc(slug);
   try {
     await db.runTransaction(async (t) => {
       const doc = await t.get(ref);
       const atual = doc.exists ? doc.data() : { likes: 0, dislikes: 0 };
-      const novo = { likes: atual.likes || 0, dislikes: atual.dislikes || 0 };
-      novo[campo] += 1;
-      t.set(ref, novo, { merge: true });
+      let likes = atual.likes || 0;
+      let dislikes = atual.dislikes || 0;
+
+      if (!votoAtual) {
+        // Primeiro voto desta loja nesta adaptação.
+        if (tipo === 'like') likes += 1; else dislikes += 1;
+      } else if (votoAtual === tipo) {
+        // Clicou de novo no mesmo botão -> reverte (remove) o voto.
+        if (tipo === 'like') likes = Math.max(0, likes - 1);
+        else dislikes = Math.max(0, dislikes - 1);
+      } else {
+        // Clicou no botão oposto -> troca o voto de um lado pro outro.
+        if (tipo === 'like') { likes += 1; dislikes = Math.max(0, dislikes - 1); }
+        else { dislikes += 1; likes = Math.max(0, likes - 1); }
+      }
+      t.set(ref, { likes, dislikes }, { merge: true });
     });
-    localStorage.setItem(chaveLocal, tipo);
+
+    if (!votoAtual || votoAtual !== tipo) {
+      localStorage.setItem(chaveLocal, tipo);
+    } else {
+      localStorage.removeItem(chaveLocal); // voto revertido
+    }
+
     const doc = await ref.get();
     avaliacoesCache[slug] = doc.data();
     renderResultados(buscaInput.value);
+    if (typeof atualizarPainelSeAberto === 'function') atualizarPainelSeAberto();
   } catch (e) {
     console.error(e);
     alert('Não foi possível registrar o voto agora. Verifique a conexão com a internet.');
@@ -659,9 +690,9 @@ function renderTagsAdaptacoes(marca, modelo, adaptacoes) {
         ${st.total > 0 ? `<span class="tag-pct" title="${st.total} avaliação(ões) de lojas">${st.pctAprovacao}% 👍</span>` : ''}
         <span class="tag-votos">
           <button type="button" class="voto-btn voto-like${votoAtual === 'like' ? ' votado' : ''}"
-                  onclick="votar('${slug}','like',event)" title="Essa adaptação funciona" ${votoAtual ? 'disabled' : ''}>👍</button>
+                  onclick="votar('${slug}','like',event)" title="Clique para avaliar / clique de novo para desfazer">👍</button>
           <button type="button" class="voto-btn voto-dislike${votoAtual === 'dislike' ? ' votado' : ''}"
-                  onclick="votar('${slug}','dislike',event)" title="Essa adaptação não funciona" ${votoAtual ? 'disabled' : ''}>👎</button>
+                  onclick="votar('${slug}','dislike',event)" title="Clique para avaliar / clique de novo para desfazer">👎</button>
         </span>
       </span>`;
   }).join('');
@@ -728,6 +759,116 @@ buscaInput.addEventListener('input', (e) => {
   // tecla enquanto a pessoa ainda está digitando (isso é o que mais trava
   // a digitação quando há muitos resultados na tela).
   debounceTimer = setTimeout(() => renderResultados(valor), 150);
+});
+
+/* ============================================================
+   PAINEL DE RANKING (mais like / mais deslike)
+   ============================================================
+   Lista todas as adaptações já avaliadas por alguma loja,
+   ordenadas para destacar as mais reprovadas — pra você decidir
+   quais tirar do catálogo manualmente (além das que já somem
+   sozinhas ao passar do limite configurado em MIN_VOTOS_REMOCAO
+   e LIMITE_REPROVACAO, lá em cima).
+   ============================================================ */
+const painelOverlay = document.getElementById('painelOverlay');
+const painelBtn = document.getElementById('painelToggle');
+const painelFechar = document.getElementById('painelFechar');
+const painelCorpo = document.getElementById('painelCorpo');
+let ordemPainelAtual = 'deslikes'; // 'deslikes' | 'likes'
+
+function construirListaPainel() {
+  const linhas = [];
+  for (const slug in avaliacoesCache) {
+    const info = slugParaTexto[slug];
+    if (!info) continue; // slug de uma adaptação que não existe mais em "dados"
+    const { likes, dislikes } = avaliacoesCache[slug];
+    const total = (likes || 0) + (dislikes || 0);
+    if (total === 0) continue;
+    const st = statusAdaptacao(slug);
+    linhas.push({
+      origem: info.origem,
+      adaptacao: info.adaptacao,
+      likes: likes || 0,
+      dislikes: dislikes || 0,
+      total,
+      pctAprovacao: st.pctAprovacao,
+      reprovada: st.reprovada
+    });
+  }
+  linhas.sort((a, b) => {
+    if (ordemPainelAtual === 'deslikes') return b.dislikes - a.dislikes || b.total - a.total;
+    return b.likes - a.likes || b.total - a.total;
+  });
+  return linhas;
+}
+
+function renderPainel() {
+  if (!avaliacoesCarregadas) {
+    painelCorpo.innerHTML = `<div class="vazio"><i class="fas fa-spinner fa-spin"></i><p>Carregando avaliações...</p></div>`;
+    return;
+  }
+  const linhas = construirListaPainel();
+  if (!linhas.length) {
+    painelCorpo.innerHTML = `<div class="vazio"><i class="fas fa-chart-simple"></i><p>Nenhuma loja avaliou uma adaptação ainda.</p></div>`;
+    return;
+  }
+  painelCorpo.innerHTML = `
+    <table class="painel-tabela">
+      <thead>
+        <tr>
+          <th>Modelo (origem)</th>
+          <th>Adaptação avaliada</th>
+          <th>👍</th>
+          <th>👎</th>
+          <th>% aprovação</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${linhas.map(l => `
+          <tr class="${l.reprovada ? 'linha-reprovada' : ''}">
+            <td>${l.origem}</td>
+            <td>${l.adaptacao}</td>
+            <td class="col-num">${l.likes}</td>
+            <td class="col-num">${l.dislikes}</td>
+            <td class="col-num">${l.pctAprovacao}%</td>
+            <td>${l.reprovada
+              ? '<span class="selo selo-removida">Removida do site</span>'
+              : '<span class="selo selo-ativa">Ativa</span>'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function atualizarPainelSeAberto() {
+  if (painelOverlay && painelOverlay.classList.contains('aberto')) renderPainel();
+}
+
+function abrirPainel() {
+  painelOverlay.classList.add('aberto');
+  renderPainel();
+  if (!avaliacoesCarregadas) carregarAvaliacoes();
+}
+
+function fecharPainel() {
+  painelOverlay.classList.remove('aberto');
+}
+
+if (painelBtn) painelBtn.addEventListener('click', abrirPainel);
+if (painelFechar) painelFechar.addEventListener('click', fecharPainel);
+if (painelOverlay) {
+  painelOverlay.addEventListener('click', (e) => {
+    if (e.target === painelOverlay) fecharPainel(); // clicou fora do card
+  });
+}
+document.querySelectorAll('.painel-ordenar button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    ordemPainelAtual = btn.dataset.ordem;
+    document.querySelectorAll('.painel-ordenar button').forEach(b => b.classList.toggle('ativo', b === btn));
+    renderPainel();
+  });
 });
 
 carregarAvaliacoes();

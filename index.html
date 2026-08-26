@@ -19,6 +19,10 @@
   <i class="fas fa-moon"></i>
 </button>
 
+<button class="painel-toggle" id="painelToggle" aria-label="Abrir ranking de avaliações">
+  <i class="fas fa-ranking-star"></i>
+</button>
+
 <div class="tabs-container">
   <button class="tab-button active" onclick="switchTab('pesquisa', this)">
     <i class="fas fa-search"></i>
@@ -145,6 +149,32 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 
 <script src="script.js"></script>
+
+<div class="painel-overlay" id="painelOverlay">
+  <div class="painel-modal">
+    <div class="painel-header">
+      <h2><i class="fas fa-ranking-star"></i> Ranking de avaliações das lojas</h2>
+      <button type="button" class="painel-fechar" id="painelFechar" aria-label="Fechar painel">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="painel-ordenar">
+      <span>Ordenar por:</span>
+      <button type="button" class="ativo" data-ordem="deslikes"><i class="fas fa-thumbs-down"></i> Mais deslikes</button>
+      <button type="button" data-ordem="likes"><i class="fas fa-thumbs-up"></i> Mais likes</button>
+    </div>
+
+    <p class="painel-legenda">
+      Adaptações marcadas como <strong>"Removida do site"</strong> já somem
+      automaticamente da busca (por terem passado do limite de reprovação).
+      As demais continuam visíveis — use esta lista pra decidir manualmente
+      se alguma outra deve ser removida do catálogo.
+    </p>
+
+    <div id="painelCorpo" class="painel-corpo"></div>
+  </div>
+</div>
 
 </body>
 </html>
