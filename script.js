@@ -830,7 +830,16 @@ adminGruposLista.addEventListener('keydown', (e) => {
   e.preventDefault();
   const texto = e.target.value.trim();
   const jaTem = adminGrupos[i].chips.some(c => normalizar(c.modelo) === normalizar(texto));
-  if (!jaTem) adminGrupos[i].chips.push({ marca: null, modelo: texto });
+  if (!jaTem) {
+    // Se o texto digitado bate (nome exato) com um modelo já cadastrado no
+    // sistema, usa a mesma ficha (com a marca) em vez de texto livre — assim
+    // a ligação recíproca é criada ao salvar, igual quando se clica na
+    // sugestão da lista, mesmo que o usuário só tenha apertado Enter.
+    const existente = dados.find(d => normalizar(d.modelo) === normalizar(texto));
+    adminGrupos[i].chips.push(existente
+      ? { marca: existente.marca, modelo: existente.modelo }
+      : { marca: null, modelo: texto });
+  }
   e.target.value = '';
   renderAdaptSugestoesGrupo(i, []);
   renderChipsGrupo(i);
@@ -1001,25 +1010,6 @@ adminSalvarBtn.addEventListener('click', async () => {
   }
 });
 
-carregarCatalogo();
-
-const cores = {
-  samsung: { fundo:"#1428a0", texto:"#ffffff" },
-  motorola: { fundo:"#001526", texto:"#ffffff" },
-  xiaomi: { fundo:"#ff6a08", texto:"#000000" },
-  apple: { fundo:"#dcdcdc", texto:"#000000" },
-  asus: { fundo:"#000000", texto:"#ffffff" },
-  infinix: { fundo:"#8ec142", texto:"#000000" },
-  itel: { fundo:"#fd0137", texto:"#ffffff" },
-  lg: { fundo:"#a50034", texto:"#ffffff" },
-  nokia: { fundo:"#1c4598", texto:"#ffffff" },
-  oppo: { fundo:"#006b33", texto:"#ffffff" },
-  oscal: { fundo:"#9c40dd", texto:"#ffffff" },
-  realme: { fundo:"#ffc913", texto:"#000000" },
-  tecno: { fundo:"#0064fe", texto:"#ffffff" },
-  jovi: { fundo:"#1c4598", texto:"#ffffff" }
-};
-
 const fabSelect = document.getElementById('fabricante');
 const fabSelectCapa = document.getElementById('fabricanteCapa');
 
@@ -1048,6 +1038,26 @@ function popularFabricantes() {
   if (fabricantes.includes(valorAtual)) fabSelect.value = valorAtual;
   if (fabricantes.includes(valorAtualCapa)) fabSelectCapa.value = valorAtualCapa;
 }
+
+carregarCatalogo();
+
+const cores = {
+  samsung: { fundo:"#1428a0", texto:"#ffffff" },
+  motorola: { fundo:"#001526", texto:"#ffffff" },
+  xiaomi: { fundo:"#ff6a08", texto:"#000000" },
+  apple: { fundo:"#dcdcdc", texto:"#000000" },
+  asus: { fundo:"#000000", texto:"#ffffff" },
+  infinix: { fundo:"#8ec142", texto:"#000000" },
+  itel: { fundo:"#fd0137", texto:"#ffffff" },
+  lg: { fundo:"#a50034", texto:"#ffffff" },
+  nokia: { fundo:"#1c4598", texto:"#ffffff" },
+  oppo: { fundo:"#006b33", texto:"#ffffff" },
+  oscal: { fundo:"#9c40dd", texto:"#ffffff" },
+  realme: { fundo:"#ffc913", texto:"#000000" },
+  tecno: { fundo:"#0064fe", texto:"#ffffff" },
+  jovi: { fundo:"#1c4598", texto:"#ffffff" }
+};
+
 popularFabricantes();
 
 fabSelect.addEventListener('change', () => {
