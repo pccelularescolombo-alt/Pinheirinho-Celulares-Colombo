@@ -622,7 +622,7 @@ let adminAchadosModeloPorGrupo = {};
 let adminAchadosAdaptPorGrupo = {};
 
 function criarGrupoVazio() {
-  return { modelo: '', modeloExistente: null, chips: [], semAdaptacao: false };
+  return { modelo: '', modeloExistente: null, chips: [], semAdaptacao: false, criarNovasFichas: false };
 }
 
 function popularSelectMarcaAdmin() {
@@ -688,9 +688,14 @@ function renderGruposAdmin() {
       <div class="admin-form-group">
         <label class="admin-label">Adaptações compatíveis (busque e adicione quantas quiser)</label>
         <input type="text" class="admin-input admin-adapt-input" data-i="${i}" autocomplete="off"
-               placeholder="Digite o nome de outro modelo já cadastrado...">
+               placeholder="Digite o nome de outro modelo já cadastrado ou de um modelo novo...">
         <div class="admin-sugestoes admin-adapt-sugestoes" data-i="${i}"></div>
         <div class="admin-chips-lista admin-chips-lista-grupo" data-i="${i}"></div>
+
+        <label class="admin-checkbox-label admin-criar-fichas-label">
+          <input type="checkbox" class="admin-criar-fichas-check" data-i="${i}" ${g.criarNovasFichas ? 'checked' : ''}>
+          Criar ficha própria (mesma fabricante) pra adaptações digitadas que ainda não existem no sistema, já ligando de volta pra este modelo
+        </label>
       </div>`}
     </div>
   `).join('');
@@ -815,12 +820,19 @@ adminGruposLista.addEventListener('input', (e) => {
 });
 
 adminGruposLista.addEventListener('change', (e) => {
-  if (!e.target.classList.contains('admin-sem-adapt-check')) return;
   const i = Number(e.target.dataset.i);
   if (Number.isNaN(i)) return;
-  adminGrupos[i].semAdaptacao = e.target.checked;
-  if (e.target.checked) adminGrupos[i].chips = []; // marcado como "sem adaptação" não faz sentido ter chips
-  renderGruposAdmin();
+
+  if (e.target.classList.contains('admin-sem-adapt-check')) {
+    adminGrupos[i].semAdaptacao = e.target.checked;
+    if (e.target.checked) adminGrupos[i].chips = []; // marcado como "sem adaptação" não faz sentido ter chips
+    renderGruposAdmin();
+    return;
+  }
+
+  if (e.target.classList.contains('admin-criar-fichas-check')) {
+    adminGrupos[i].criarNovasFichas = e.target.checked;
+  }
 });
 
 adminGruposLista.addEventListener('keydown', (e) => {
@@ -966,13 +978,18 @@ adminSalvarBtn.addEventListener('click', async () => {
       // C, então B também precisa ganhar A e C como adaptação, e C precisa
       // ganhar A e B — as três fichas ficam todas ligadas entre si, não só
       // de volta pro modelo principal.
+      // Se "c.marca" não veio de uma ficha existente (texto digitado livre),
+      // só criamos a ficha nova pra ele quando o admin marcou a opção
+      // "criar ficha própria" — nesse caso assumimos a mesma fabricante do
+      // modelo principal, já que o formulário não pede marca por adaptação.
       for (const c of g.chips) {
-        if (!c.marca) continue; // texto digitado livre, sem ficha própria — não dá pra ligar de volta
+        const marcaLigacao = c.marca || (g.criarNovasFichas ? marcaNome : null);
+        if (!marcaLigacao) continue; // texto digitado livre e "criar ficha" desmarcado — não dá pra ligar de volta
         const ligacoes = new Set([modeloNome, ...g.chips.map(o => o.modelo)]);
         ligacoes.delete(c.modelo); // não liga o item com ele mesmo
-        const slugOutro = normalizarSlugModelo(c.marca, c.modelo);
+        const slugOutro = normalizarSlugModelo(marcaLigacao, c.modelo);
         await db.collection('modelos').doc(slugOutro).set({
-          marca: c.marca,
+          marca: marcaLigacao,
           modelo: c.modelo,
           adaptacoes: firebase.firestore.FieldValue.arrayUnion(...ligacoes)
         }, { merge: true });
@@ -981,10 +998,11 @@ adminSalvarBtn.addEventListener('click', async () => {
       // Atualiza a busca na hora, sem precisar recarregar a página.
       mesclarModeloNoSistema({ marca: marcaNome, modelo: modeloNome, adaptacoes: nomesAdaptacoes });
       g.chips.forEach(c => {
-        if (c.marca) {
+        const marcaLigacao = c.marca || (g.criarNovasFichas ? marcaNome : null);
+        if (marcaLigacao) {
           const ligacoes = new Set([modeloNome, ...g.chips.map(o => o.modelo)]);
           ligacoes.delete(c.modelo);
-          mesclarModeloNoSistema({ marca: c.marca, modelo: c.modelo, adaptacoes: [...ligacoes] });
+          mesclarModeloNoSistema({ marca: marcaLigacao, modelo: c.modelo, adaptacoes: [...ligacoes] });
         }
       });
       nomesModelosSalvos.push(modeloNome);
