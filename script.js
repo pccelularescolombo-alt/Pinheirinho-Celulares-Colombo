@@ -23,7 +23,7 @@ const firebaseConfig = {
 
 let db;
 try {
-  if (firebaseConfig.apiKey !== "COLE_AQUI_SUA_API_KEY" && typeof firebase !== 'undefined') {
+  if (firebaseConfig.apiKey !== "AIzaSyCIhqKbJcGiVdI1VrGapRxDH3OcF-0E1CM" && typeof firebase !== 'undefined') {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
   } else {
@@ -447,8 +447,8 @@ carregarAvaliacoes();
    problema (edições indevidas), o certo é migrar pra um login de
    verdade — posso implementar depois se precisar.
    ============================================================ */
-const ADMIN_USUARIO = "pinheirinho";
-const ADMIN_SENHA = "pelicula2026"; // troque aqui pela senha que quiser usar
+const ADMIN_USUARIO = "admin";
+const ADMIN_SENHA = "19021998"; // troque aqui pela senha que quiser usar
 
 function normalizarSlugModelo(marca, modelo) {
   return normalizar(marca + modelo);
