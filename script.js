@@ -592,21 +592,31 @@ document.getElementById('loginEntrar').addEventListener('click', tentarLogin);
   inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') tentarLogin(); });
 });
 
-/* ---------- Formulário de modelo / adaptação ---------- */
+/* ---------- Formulário de modelo / adaptação ----------
+   Suporta cadastrar VÁRIOS modelos de uma vez para a mesma fabricante.
+   Cada "grupo" (bloco) do formulário tem seu próprio campo de modelo e sua
+   própria lista de adaptações; a fabricante é única e vale pra todos os
+   grupos. Ao salvar, cada grupo vira um documento no Firestore, do mesmo
+   jeito que já acontecia antes (arrayUnion + ligação recíproca). */
 const adminOverlay = document.getElementById('adminOverlay');
-const adminModeloInput = document.getElementById('adminModelo');
-const adminModeloSugestoes = document.getElementById('adminModeloSugestoes');
+const adminGruposLista = document.getElementById('adminGruposLista');
+const adminAddGrupoBtn = document.getElementById('adminAddGrupoBtn');
 const adminMarcaSelect = document.getElementById('adminMarca');
 const adminNovaMarcaInput = document.getElementById('adminNovaMarca');
-const adminAdaptInput = document.getElementById('adminAdaptacao');
-const adminAdaptSugestoes = document.getElementById('adminAdaptSugestoes');
-const adminChipsLista = document.getElementById('adminChipsLista');
 const adminErro = document.getElementById('adminErro');
 const adminSucesso = document.getElementById('adminSucesso');
 const adminSalvarBtn = document.getElementById('adminSalvar');
 
-let adminChips = [];                  // [{marca, modelo}] — adaptações selecionadas no formulário
-let adminModeloSelecionadoExistente = null; // referência ao item de "dados", se for edição de um modelo já cadastrado
+// Cada item: { modelo: string, modeloExistente: objeto de "dados" ou null, chips: [{marca, modelo}] }
+let adminGrupos = [];
+// Guarda temporariamente os resultados de busca mostrados em cada grupo,
+// pra saber a qual item corresponde quando a pessoa clica numa sugestão.
+let adminAchadosModeloPorGrupo = {};
+let adminAchadosAdaptPorGrupo = {};
+
+function criarGrupoVazio() {
+  return { modelo: '', modeloExistente: null, chips: [] };
+}
 
 function popularSelectMarcaAdmin() {
   adminMarcaSelect.innerHTML = '<option value="">Selecione a marca</option>';
@@ -622,41 +632,129 @@ function popularSelectMarcaAdmin() {
   adminMarcaSelect.appendChild(optNova);
 }
 
-function renderChipsAdmin() {
-  if (!adminChips.length) {
-    adminChipsLista.innerHTML = '<span class="admin-chip-vazio">Nenhuma adaptação adicionada ainda.</span>';
-    return;
-  }
-  adminChipsLista.innerHTML = adminChips.map((c, i) => `
-    <span class="admin-chip">
-      ${c.marca ? `${c.marca} • ${c.modelo}` : c.modelo}
-      <button type="button" data-i="${i}" class="admin-chip-remover" title="Remover">&times;</button>
-    </span>
-  `).join('');
-  adminChipsLista.querySelectorAll('.admin-chip-remover').forEach(btn => {
-    btn.addEventListener('click', () => {
-      adminChips.splice(Number(btn.dataset.i), 1);
-      renderChipsAdmin();
-    });
-  });
+// Busca modelos já cadastrados (marca ou modelo) pra usar tanto na busca do
+// "qual modelo estou cadastrando" quanto na busca de "quais adaptações ligar".
+function buscarModelosSistema(termo, excluirSlug) {
+  const f = normalizar(termo);
+  if (!f) return [];
+  return dados
+    .filter(d => normalizarSlugModelo(d.marca, d.modelo) !== excluirSlug)
+    .filter(d => (d._modeloNorm || normalizar(d.modelo)).includes(f) || (d._marcaNorm || normalizar(d.marca)).includes(f))
+    .slice(0, 8);
 }
 
+function escaparHtml(txt) {
+  const div = document.createElement('div');
+  div.textContent = txt || '';
+  return div.innerHTML;
+}
+
+/* ---------- Renderização ---------- */
+
+// Re-renderiza a lista inteira de grupos (usado ao abrir o painel e ao
+// adicionar/remover um grupo). Digitar dentro de um grupo NÃO passa por
+// aqui, pra não perder o foco do campo — só atualiza a parte necessária.
+function renderGruposAdmin() {
+  adminGruposLista.innerHTML = adminGrupos.map((g, i) => `
+    <div class="admin-grupo" data-i="${i}">
+      <div class="admin-grupo-topo">
+        <span class="admin-grupo-numero">Modelo ${i + 1}</span>
+        ${adminGrupos.length > 1 ? `
+          <button type="button" class="admin-grupo-remover" data-i="${i}" title="Remover este modelo">
+            <i class="fas fa-trash"></i>
+          </button>` : ''}
+      </div>
+
+      <div class="admin-form-group">
+        <label class="admin-label">Modelo (digite pra buscar um já cadastrado ou criar um novo)</label>
+        <input type="text" class="admin-input admin-modelo-input" data-i="${i}" autocomplete="off"
+               placeholder="Ex: iPhone 16e" value="${escaparHtml(g.modelo)}">
+        <div class="admin-sugestoes admin-modelo-sugestoes" data-i="${i}"></div>
+      </div>
+
+      <div class="admin-form-group">
+        <label class="admin-label">Adaptações compatíveis (busque e adicione quantas quiser)</label>
+        <input type="text" class="admin-input admin-adapt-input" data-i="${i}" autocomplete="off"
+               placeholder="Digite o nome de outro modelo já cadastrado...">
+        <div class="admin-sugestoes admin-adapt-sugestoes" data-i="${i}"></div>
+        <div class="admin-chips-lista admin-chips-lista-grupo" data-i="${i}"></div>
+      </div>
+    </div>
+  `).join('');
+
+  adminGrupos.forEach((g, i) => renderChipsGrupo(i));
+}
+
+function renderChipsGrupo(i) {
+  const el = adminGruposLista.querySelector(`.admin-chips-lista-grupo[data-i="${i}"]`);
+  if (!el) return;
+  const chips = adminGrupos[i].chips;
+  if (!chips.length) {
+    el.innerHTML = '<span class="admin-chip-vazio">Nenhuma adaptação adicionada ainda.</span>';
+    return;
+  }
+  el.innerHTML = chips.map((c, j) => `
+    <span class="admin-chip">
+      ${c.marca ? `${c.marca} • ${c.modelo}` : c.modelo}
+      <button type="button" data-i="${i}" data-j="${j}" class="admin-chip-remover" title="Remover">&times;</button>
+    </span>
+  `).join('');
+}
+
+function renderModeloSugestoesGrupo(i, achados) {
+  const el = adminGruposLista.querySelector(`.admin-modelo-sugestoes[data-i="${i}"]`);
+  if (!el) return;
+  adminAchadosModeloPorGrupo[i] = achados;
+  if (!achados.length) { el.innerHTML = ''; return; }
+  el.innerHTML = achados.map((d, j) => `
+    <button type="button" class="admin-sugestao-item admin-sugestao-modelo" data-i="${i}" data-j="${j}">${d.marca} • ${d.modelo}</button>
+  `).join('');
+}
+
+function renderAdaptSugestoesGrupo(i, achados) {
+  const el = adminGruposLista.querySelector(`.admin-adapt-sugestoes[data-i="${i}"]`);
+  if (!el) return;
+  adminAchadosAdaptPorGrupo[i] = achados;
+  if (!achados.length) { el.innerHTML = ''; return; }
+  el.innerHTML = achados.map((d, j) => `
+    <button type="button" class="admin-sugestao-item admin-sugestao-adapt" data-i="${i}" data-j="${j}">${d.marca} • ${d.modelo}</button>
+  `).join('');
+}
+
+function selecionarModeloExistenteGrupo(i, item) {
+  const g = adminGrupos[i];
+  g.modeloExistente = item;
+  g.modelo = item.modelo;
+  g.chips = (item.adaptacoes && item.adaptacoes[0] !== 'Sem Adaptação')
+    ? item.adaptacoes.map(a => {
+        const origem = dados.find(d => normalizar(d.modelo) === normalizar(a));
+        return { marca: origem ? origem.marca : null, modelo: a };
+      })
+    : [];
+  const input = adminGruposLista.querySelector(`.admin-modelo-input[data-i="${i}"]`);
+  if (input) input.value = item.modelo;
+  renderModeloSugestoesGrupo(i, []);
+  renderChipsGrupo(i);
+}
+
+/* ---------- Abrir / fechar ---------- */
+
 function abrirAdmin() {
-  adminModeloInput.value = '';
   adminNovaMarcaInput.value = '';
   adminNovaMarcaInput.style.display = 'none';
-  adminAdaptInput.value = '';
-  adminAdaptSugestoes.innerHTML = '';
-  adminModeloSugestoes.innerHTML = '';
-  adminChips = [];
-  adminModeloSelecionadoExistente = null;
+  adminGrupos = [criarGrupoVazio()];
+  adminAchadosModeloPorGrupo = {};
+  adminAchadosAdaptPorGrupo = {};
   adminErro.style.display = 'none';
   adminSucesso.style.display = 'none';
-  renderChipsAdmin();
   popularSelectMarcaAdmin();
   adminMarcaSelect.value = '';
+  renderGruposAdmin();
   adminOverlay.classList.add('aberto');
-  setTimeout(() => adminModeloInput.focus(), 50);
+  setTimeout(() => {
+    const primeiro = adminGruposLista.querySelector('.admin-modelo-input');
+    if (primeiro) primeiro.focus();
+  }, 50);
 }
 function fecharAdmin() {
   adminOverlay.classList.remove('aberto');
@@ -670,95 +768,126 @@ adminMarcaSelect.addEventListener('change', () => {
   adminNovaMarcaInput.style.display = adminMarcaSelect.value === '__nova__' ? 'block' : 'none';
 });
 
-// Busca modelos já cadastrados (marca ou modelo) pra usar tanto na busca do
-// "qual modelo estou cadastrando" quanto na busca de "quais adaptações ligar".
-function buscarModelosSistema(termo, excluirSlug) {
-  const f = normalizar(termo);
-  if (!f) return [];
-  return dados
-    .filter(d => normalizarSlugModelo(d.marca, d.modelo) !== excluirSlug)
-    .filter(d => (d._modeloNorm || normalizar(d.modelo)).includes(f) || (d._marcaNorm || normalizar(d.marca)).includes(f))
-    .slice(0, 8);
-}
+/* ---------- Adicionar / remover grupos ---------- */
 
-function selecionarModeloExistenteAdmin(item) {
-  adminModeloSelecionadoExistente = item;
-  adminModeloInput.value = item.modelo;
-  adminMarcaSelect.value = item.marca;
-  adminNovaMarcaInput.style.display = 'none';
-  adminModeloSugestoes.innerHTML = '';
-  adminChips = (item.adaptacoes && item.adaptacoes[0] !== 'Sem Adaptação')
-    ? item.adaptacoes.map(a => {
-        const origem = dados.find(d => normalizar(d.modelo) === normalizar(a));
-        return { marca: origem ? origem.marca : null, modelo: a };
-      })
-    : [];
-  renderChipsAdmin();
-}
-
-adminModeloInput.addEventListener('input', () => {
-  adminModeloSelecionadoExistente = null;
-  const achados = buscarModelosSistema(adminModeloInput.value, null);
-  if (!achados.length) { adminModeloSugestoes.innerHTML = ''; return; }
-  adminModeloSugestoes.innerHTML = achados.map((d, i) => `
-    <button type="button" class="admin-sugestao-item" data-i="${i}">${d.marca} • ${d.modelo}</button>
-  `).join('');
-  adminModeloSugestoes.querySelectorAll('.admin-sugestao-item').forEach((btn, i) => {
-    btn.addEventListener('click', () => selecionarModeloExistenteAdmin(achados[i]));
-  });
+adminAddGrupoBtn.addEventListener('click', () => {
+  adminGrupos.push(criarGrupoVazio());
+  renderGruposAdmin();
+  const inputs = adminGruposLista.querySelectorAll('.admin-modelo-input');
+  const ultimo = inputs[inputs.length - 1];
+  if (ultimo) ultimo.focus();
 });
 
-adminAdaptInput.addEventListener('input', () => {
-  const slugAtual = adminModeloSelecionadoExistente
-    ? normalizarSlugModelo(adminModeloSelecionadoExistente.marca, adminModeloSelecionadoExistente.modelo)
-    : null;
-  const achados = buscarModelosSistema(adminAdaptInput.value, slugAtual);
-  if (!achados.length) { adminAdaptSugestoes.innerHTML = ''; return; }
-  adminAdaptSugestoes.innerHTML = achados.map((d, i) => `
-    <button type="button" class="admin-sugestao-item" data-i="${i}">${d.marca} • ${d.modelo}</button>
-  `).join('');
-  adminAdaptSugestoes.querySelectorAll('.admin-sugestao-item').forEach((btn, i) => {
-    btn.addEventListener('click', () => {
-      const d = achados[i];
-      const jaTem = adminChips.some(c => normalizar(c.modelo) === normalizar(d.modelo));
-      if (!jaTem) adminChips.push({ marca: d.marca, modelo: d.modelo });
-      adminAdaptInput.value = '';
-      adminAdaptSugestoes.innerHTML = '';
-      renderChipsAdmin();
-    });
-  });
-});
+/* ---------- Eventos delegados (funcionam pra qualquer grupo, mesmo os
+   adicionados depois) ---------- */
 
-// Permite adicionar um texto que não existe no sistema (ex: "Sem Adaptação"
-// ou um nome digitado na mão) apertando Enter — sem ligação recíproca nesse caso.
-adminAdaptInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && adminAdaptInput.value.trim()) {
-    e.preventDefault();
-    const texto = adminAdaptInput.value.trim();
-    const jaTem = adminChips.some(c => normalizar(c.modelo) === normalizar(texto));
-    if (!jaTem) adminChips.push({ marca: null, modelo: texto });
-    adminAdaptInput.value = '';
-    adminAdaptSugestoes.innerHTML = '';
-    renderChipsAdmin();
+adminGruposLista.addEventListener('input', (e) => {
+  const i = Number(e.target.dataset.i);
+  if (Number.isNaN(i)) return;
+
+  if (e.target.classList.contains('admin-modelo-input')) {
+    adminGrupos[i].modelo = e.target.value;
+    adminGrupos[i].modeloExistente = null;
+    const achados = buscarModelosSistema(e.target.value, null);
+    renderModeloSugestoesGrupo(i, achados);
+  }
+
+  if (e.target.classList.contains('admin-adapt-input')) {
+    const g = adminGrupos[i];
+    const slugAtual = g.modeloExistente ? normalizarSlugModelo(g.modeloExistente.marca, g.modeloExistente.modelo) : null;
+    const achados = buscarModelosSistema(e.target.value, slugAtual);
+    renderAdaptSugestoesGrupo(i, achados);
   }
 });
+
+adminGruposLista.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || !e.target.classList.contains('admin-adapt-input')) return;
+  const i = Number(e.target.dataset.i);
+  if (Number.isNaN(i) || !e.target.value.trim()) return;
+  e.preventDefault();
+  const texto = e.target.value.trim();
+  const jaTem = adminGrupos[i].chips.some(c => normalizar(c.modelo) === normalizar(texto));
+  if (!jaTem) adminGrupos[i].chips.push({ marca: null, modelo: texto });
+  e.target.value = '';
+  renderAdaptSugestoesGrupo(i, []);
+  renderChipsGrupo(i);
+});
+
+adminGruposLista.addEventListener('click', (e) => {
+  const btnModelo = e.target.closest('.admin-sugestao-modelo');
+  if (btnModelo) {
+    const i = Number(btnModelo.dataset.i);
+    const j = Number(btnModelo.dataset.j);
+    const item = (adminAchadosModeloPorGrupo[i] || [])[j];
+    if (item) selecionarModeloExistenteGrupo(i, item);
+    return;
+  }
+
+  const btnAdapt = e.target.closest('.admin-sugestao-adapt');
+  if (btnAdapt) {
+    const i = Number(btnAdapt.dataset.i);
+    const j = Number(btnAdapt.dataset.j);
+    const d = (adminAchadosAdaptPorGrupo[i] || [])[j];
+    if (d) {
+      const jaTem = adminGrupos[i].chips.some(c => normalizar(c.modelo) === normalizar(d.modelo));
+      if (!jaTem) adminGrupos[i].chips.push({ marca: d.marca, modelo: d.modelo });
+      const input = adminGruposLista.querySelector(`.admin-adapt-input[data-i="${i}"]`);
+      if (input) input.value = '';
+      renderAdaptSugestoesGrupo(i, []);
+      renderChipsGrupo(i);
+    }
+    return;
+  }
+
+  const btnRemoverChip = e.target.closest('.admin-chips-lista-grupo .admin-chip-remover');
+  if (btnRemoverChip) {
+    const i = Number(btnRemoverChip.dataset.i);
+    const j = Number(btnRemoverChip.dataset.j);
+    adminGrupos[i].chips.splice(j, 1);
+    renderChipsGrupo(i);
+    return;
+  }
+
+  const btnRemoverGrupo = e.target.closest('.admin-grupo-remover');
+  if (btnRemoverGrupo) {
+    const i = Number(btnRemoverGrupo.dataset.i);
+    adminGrupos.splice(i, 1);
+    renderGruposAdmin();
+  }
+});
+
+/* ---------- Salvar (grava cada grupo como um modelo no Firestore) ---------- */
 
 adminSalvarBtn.addEventListener('click', async () => {
   adminErro.style.display = 'none';
   adminSucesso.style.display = 'none';
 
-  const modeloNome = adminModeloInput.value.trim();
   const marcaNome = adminMarcaSelect.value === '__nova__' ? adminNovaMarcaInput.value.trim() : adminMarcaSelect.value;
 
-  if (!modeloNome || !marcaNome) {
-    adminErro.textContent = 'Preencha o nome do modelo e escolha (ou digite) a marca.';
+  if (!marcaNome) {
+    adminErro.textContent = 'Escolha (ou digite) a fabricante.';
     adminErro.style.display = 'block';
     return;
   }
-  if (!adminChips.length) {
-    adminErro.textContent = 'Adicione ao menos uma adaptação (digite "Sem Adaptação" e aperte Enter se não houver nenhuma).';
-    adminErro.style.display = 'block';
-    return;
+
+  // Lê o valor mais atual de cada campo de modelo direto do DOM (garantia
+  // extra, embora já fiquem sincronizados a cada tecla digitada).
+  adminGruposLista.querySelectorAll('.admin-modelo-input').forEach(input => {
+    const i = Number(input.dataset.i);
+    if (!Number.isNaN(i) && adminGrupos[i]) adminGrupos[i].modelo = input.value;
+  });
+
+  for (let i = 0; i < adminGrupos.length; i++) {
+    if (!adminGrupos[i].modelo.trim()) {
+      adminErro.textContent = `Preencha o nome do modelo ${i + 1}.`;
+      adminErro.style.display = 'block';
+      return;
+    }
+    if (!adminGrupos[i].chips.length) {
+      adminErro.textContent = `Adicione ao menos uma adaptação no modelo ${i + 1} (digite "Sem Adaptação" e aperte Enter se não houver nenhuma).`;
+      adminErro.style.display = 'block';
+      return;
+    }
   }
   if (typeof db === 'undefined') {
     adminErro.textContent = 'O banco de dados (Firebase) não está configurado neste site — veja as instruções no topo do script.js.';
@@ -770,42 +899,50 @@ adminSalvarBtn.addEventListener('click', async () => {
   adminSalvarBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
 
   try {
-    const nomesAdaptacoes = adminChips.map(c => c.modelo);
-    const slugPrincipal = normalizarSlugModelo(marcaNome, modeloNome);
+    const nomesModelosSalvos = [];
 
-    // Salva/atualiza o modelo principal com as adaptações escolhidas.
-    await db.collection('modelos').doc(slugPrincipal).set({
-      marca: marcaNome,
-      modelo: modeloNome,
-      adaptacoes: firebase.firestore.FieldValue.arrayUnion(...nomesAdaptacoes)
-    }, { merge: true });
+    for (const g of adminGrupos) {
+      const modeloNome = g.modelo.trim();
+      const nomesAdaptacoes = g.chips.map(c => c.modelo);
+      const slugPrincipal = normalizarSlugModelo(marcaNome, modeloNome);
 
-    // Ligação recíproca: cada adaptação selecionada (que tem marca conhecida)
-    // recebe o modelo novo/editado como adaptação dela também.
-    for (const c of adminChips) {
-      if (!c.marca) continue; // texto digitado livre, sem ficha própria — não dá pra ligar de volta
-      const slugOutro = normalizarSlugModelo(c.marca, c.modelo);
-      await db.collection('modelos').doc(slugOutro).set({
-        marca: c.marca,
-        modelo: c.modelo,
-        adaptacoes: firebase.firestore.FieldValue.arrayUnion(modeloNome)
+      // Salva/atualiza o modelo principal com as adaptações escolhidas.
+      await db.collection('modelos').doc(slugPrincipal).set({
+        marca: marcaNome,
+        modelo: modeloNome,
+        adaptacoes: firebase.firestore.FieldValue.arrayUnion(...nomesAdaptacoes)
       }, { merge: true });
+
+      // Ligação recíproca: cada adaptação selecionada (que tem marca conhecida)
+      // recebe o modelo novo/editado como adaptação dela também.
+      for (const c of g.chips) {
+        if (!c.marca) continue; // texto digitado livre, sem ficha própria — não dá pra ligar de volta
+        const slugOutro = normalizarSlugModelo(c.marca, c.modelo);
+        await db.collection('modelos').doc(slugOutro).set({
+          marca: c.marca,
+          modelo: c.modelo,
+          adaptacoes: firebase.firestore.FieldValue.arrayUnion(modeloNome)
+        }, { merge: true });
+      }
+
+      // Atualiza a busca na hora, sem precisar recarregar a página.
+      mesclarModeloNoSistema({ marca: marcaNome, modelo: modeloNome, adaptacoes: nomesAdaptacoes });
+      g.chips.forEach(c => {
+        if (c.marca) mesclarModeloNoSistema({ marca: c.marca, modelo: c.modelo, adaptacoes: [modeloNome] });
+      });
+      nomesModelosSalvos.push(modeloNome);
     }
 
-    // Atualiza a busca na hora, sem precisar recarregar a página.
-    mesclarModeloNoSistema({ marca: marcaNome, modelo: modeloNome, adaptacoes: nomesAdaptacoes });
-    adminChips.forEach(c => {
-      if (c.marca) mesclarModeloNoSistema({ marca: c.marca, modelo: c.modelo, adaptacoes: [modeloNome] });
-    });
     indexarDados();
     construirSlugParaTexto();
     popularFabricantes();
 
-    adminSucesso.style.display = 'block';
-    buscaInput.value = modeloNome;
-    renderResultados(modeloNome);
+    adminSucesso.innerHTML = `<i class="fas fa-circle-check"></i> ${nomesModelosSalvos.length > 1 ? `${nomesModelosSalvos.length} modelos salvos` : 'Modelo salvo'}! Já aparece${nomesModelosSalvos.length > 1 ? 'm' : ''} na pesquisa.`;
+    adminSucesso.style.display = 'flex';
+    buscaInput.value = nomesModelosSalvos[0];
+    renderResultados(nomesModelosSalvos[0]);
     atualizarPainelSeAberto();
-    setTimeout(fecharAdmin, 1200);
+    setTimeout(fecharAdmin, 1400);
   } catch (e) {
     console.error(e);
     adminErro.textContent = 'Não foi possível salvar agora. Verifique a conexão com a internet e tente de novo.';

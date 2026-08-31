@@ -543,6 +543,72 @@ select.admin-input {
   gap: 8px;
 }
 
+.admin-grupo {
+  border: 1px solid var(--card-border);
+  background: var(--glass-bg);
+  border-radius: 14px;
+  padding: 14px 14px 4px;
+  margin-bottom: 14px;
+  position: relative;
+}
+
+.admin-grupo-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.admin-grupo-numero {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--azul);
+}
+
+.admin-grupo-remover {
+  border: none;
+  background: rgba(220, 53, 69, 0.12);
+  color: #c62838;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.admin-grupo-remover:hover {
+  background: rgba(220, 53, 69, 0.22);
+}
+
+.btn-add-grupo {
+  width: 100%;
+  background: transparent;
+  border: 1.5px dashed var(--azul);
+  color: var(--azul);
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  transition: background 0.15s ease;
+}
+
+.btn-add-grupo:hover {
+  background: rgba(13, 59, 255, 0.08);
+}
+
 .admin-acoes {
   display: flex;
   justify-content: flex-end;

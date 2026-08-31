@@ -218,23 +218,23 @@
     </div>
 
     <div class="admin-form-group">
-      <label class="admin-label" for="adminModelo">Modelo (digite pra buscar um já cadastrado ou criar um novo)</label>
-      <input type="text" id="adminModelo" class="admin-input" autocomplete="off" placeholder="Ex: iPhone 16e">
-      <div class="admin-sugestoes" id="adminModeloSugestoes"></div>
-    </div>
-
-    <div class="admin-form-group">
-      <label class="admin-label" for="adminMarca">Marca</label>
+      <label class="admin-label" for="adminMarca">Fabricante (vale para todos os modelos abaixo)</label>
       <select id="adminMarca" class="admin-input"></select>
       <input type="text" id="adminNovaMarca" class="admin-input" placeholder="Digite o nome da nova marca" style="display:none; margin-top:8px;">
     </div>
 
-    <div class="admin-form-group">
-      <label class="admin-label" for="adminAdaptacao">Adaptações compatíveis (busque e adicione quantas quiser)</label>
-      <input type="text" id="adminAdaptacao" class="admin-input" autocomplete="off" placeholder="Digite o nome de outro modelo já cadastrado...">
-      <div class="admin-sugestoes" id="adminAdaptSugestoes"></div>
-      <div class="admin-chips-lista" id="adminChipsLista"></div>
-    </div>
+    <p class="painel-legenda" style="margin: -4px 0 14px;">
+      Você pode adicionar <strong>vários modelos de uma vez</strong> para essa
+      mesma fabricante — cada um com suas próprias adaptações. Use o botão
+      "Adicionar outro modelo" abaixo para abrir mais campos.
+    </p>
+
+    <div id="adminGruposLista"></div>
+
+    <button type="button" class="btn-add-grupo" id="adminAddGrupoBtn">
+      <i class="fas fa-plus"></i>
+      Adicionar outro modelo
+    </button>
 
     <p class="admin-erro" id="adminErro" style="display:none;"></p>
     <p class="admin-sucesso" id="adminSucesso" style="display:none;"><i class="fas fa-circle-check"></i> Modelo salvo! Ele já aparece na pesquisa.</p>
