@@ -23,7 +23,7 @@ const firebaseConfig = {
 
 let db;
 try {
-  if (firebaseConfig.apiKey !== "AIzaSyCIhqKbJcGiVdI1VrGapRxDH3OcF-0E1CM" && typeof firebase !== 'undefined') {
+  if (firebaseConfig.apiKey !== "COLE_AQUI_SUA_API_KEY" && typeof firebase !== 'undefined') {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
   } else {
