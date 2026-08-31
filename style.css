@@ -410,6 +410,14 @@ body::before {
   max-width: 460px;
 }
 
+/* Corrige o box "esticando"/cortando o conteúdo quando vários modelos são
+   adicionados: o modal herda max-height de .painel-modal, mas sem isso ele
+   não tinha rolagem própria, então o formulário ficava cortado e não dava
+   pra descer a página até os campos dos modelos seguintes. */
+.admin-modal {
+  overflow-y: auto;
+}
+
 .admin-form-group {
   margin-bottom: 16px;
   position: relative;
@@ -550,6 +558,26 @@ select.admin-input {
   padding: 14px 14px 4px;
   margin-bottom: 14px;
   position: relative;
+}
+
+.admin-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 2px 0 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-checkbox-label input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--azul);
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .admin-grupo-topo {

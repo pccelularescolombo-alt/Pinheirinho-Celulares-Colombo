@@ -461,15 +461,22 @@ function mesclarModeloNoSistema(info) {
   const slug = normalizarSlugModelo(info.marca, info.modelo);
   const existente = dados.find(d => normalizarSlugModelo(d.marca, d.modelo) === slug);
   const novasAdapt = Array.isArray(info.adaptacoes) ? info.adaptacoes : [];
+  const marcandoSemAdaptacao = novasAdapt.length === 1 && novasAdapt[0] === 'Sem Adaptação';
 
   if (existente) {
+    if (marcandoSemAdaptacao) {
+      // Substitui de vez, em vez de somar — não faz sentido ter "Sem Adaptação"
+      // misturado com adaptações reais na mesma lista.
+      existente.adaptacoes = ['Sem Adaptação'];
+      return;
+    }
     if (!existente.adaptacoes || existente.adaptacoes[0] === "Sem Adaptação") existente.adaptacoes = [];
     novasAdapt.forEach(a => {
       const jaTem = existente.adaptacoes.some(x => normalizar(x) === normalizar(a));
       if (!jaTem) existente.adaptacoes.push(a);
     });
   } else {
-    dados.push({ marca: info.marca, modelo: info.modelo, adaptacoes: [...novasAdapt] });
+    dados.push({ marca: info.marca, modelo: info.modelo, adaptacoes: marcandoSemAdaptacao ? ['Sem Adaptação'] : [...novasAdapt] });
   }
 }
 
@@ -615,7 +622,7 @@ let adminAchadosModeloPorGrupo = {};
 let adminAchadosAdaptPorGrupo = {};
 
 function criarGrupoVazio() {
-  return { modelo: '', modeloExistente: null, chips: [] };
+  return { modelo: '', modeloExistente: null, chips: [], semAdaptacao: false };
 }
 
 function popularSelectMarcaAdmin() {
@@ -672,17 +679,23 @@ function renderGruposAdmin() {
         <div class="admin-sugestoes admin-modelo-sugestoes" data-i="${i}"></div>
       </div>
 
+      <label class="admin-checkbox-label admin-sem-adapt-label">
+        <input type="checkbox" class="admin-sem-adapt-check" data-i="${i}" ${g.semAdaptacao ? 'checked' : ''}>
+        Sem Adaptação (este modelo não tem nenhuma adaptação compatível)
+      </label>
+
+      ${g.semAdaptacao ? '' : `
       <div class="admin-form-group">
         <label class="admin-label">Adaptações compatíveis (busque e adicione quantas quiser)</label>
         <input type="text" class="admin-input admin-adapt-input" data-i="${i}" autocomplete="off"
                placeholder="Digite o nome de outro modelo já cadastrado...">
         <div class="admin-sugestoes admin-adapt-sugestoes" data-i="${i}"></div>
         <div class="admin-chips-lista admin-chips-lista-grupo" data-i="${i}"></div>
-      </div>
+      </div>`}
     </div>
   `).join('');
 
-  adminGrupos.forEach((g, i) => renderChipsGrupo(i));
+  adminGrupos.forEach((g, i) => { if (!g.semAdaptacao) renderChipsGrupo(i); });
 }
 
 function renderChipsGrupo(i) {
@@ -725,16 +738,17 @@ function selecionarModeloExistenteGrupo(i, item) {
   const g = adminGrupos[i];
   g.modeloExistente = item;
   g.modelo = item.modelo;
-  g.chips = (item.adaptacoes && item.adaptacoes[0] !== 'Sem Adaptação')
+  const jaSemAdaptacao = !!(item.adaptacoes && item.adaptacoes[0] === 'Sem Adaptação');
+  g.semAdaptacao = jaSemAdaptacao;
+  g.chips = (item.adaptacoes && !jaSemAdaptacao)
     ? item.adaptacoes.map(a => {
         const origem = dados.find(d => normalizar(d.modelo) === normalizar(a));
         return { marca: origem ? origem.marca : null, modelo: a };
       })
     : [];
-  const input = adminGruposLista.querySelector(`.admin-modelo-input[data-i="${i}"]`);
-  if (input) input.value = item.modelo;
-  renderModeloSugestoesGrupo(i, []);
-  renderChipsGrupo(i);
+  // Precisa re-renderizar tudo (não só os chips) pra refletir a marcação
+  // "Sem Adaptação" e mostrar/esconder o campo de adaptações corretamente.
+  renderGruposAdmin();
 }
 
 /* ---------- Abrir / fechar ---------- */
@@ -798,6 +812,15 @@ adminGruposLista.addEventListener('input', (e) => {
     const achados = buscarModelosSistema(e.target.value, slugAtual);
     renderAdaptSugestoesGrupo(i, achados);
   }
+});
+
+adminGruposLista.addEventListener('change', (e) => {
+  if (!e.target.classList.contains('admin-sem-adapt-check')) return;
+  const i = Number(e.target.dataset.i);
+  if (Number.isNaN(i)) return;
+  adminGrupos[i].semAdaptacao = e.target.checked;
+  if (e.target.checked) adminGrupos[i].chips = []; // marcado como "sem adaptação" não faz sentido ter chips
+  renderGruposAdmin();
 });
 
 adminGruposLista.addEventListener('keydown', (e) => {
@@ -883,8 +906,8 @@ adminSalvarBtn.addEventListener('click', async () => {
       adminErro.style.display = 'block';
       return;
     }
-    if (!adminGrupos[i].chips.length) {
-      adminErro.textContent = `Adicione ao menos uma adaptação no modelo ${i + 1} (digite "Sem Adaptação" e aperte Enter se não houver nenhuma).`;
+    if (!adminGrupos[i].semAdaptacao && !adminGrupos[i].chips.length) {
+      adminErro.textContent = `Adicione ao menos uma adaptação no modelo ${i + 1}, ou marque a opção "Sem Adaptação".`;
       adminErro.style.display = 'block';
       return;
     }
@@ -903,8 +926,25 @@ adminSalvarBtn.addEventListener('click', async () => {
 
     for (const g of adminGrupos) {
       const modeloNome = g.modelo.trim();
-      const nomesAdaptacoes = g.chips.map(c => c.modelo);
       const slugPrincipal = normalizarSlugModelo(marcaNome, modeloNome);
+
+      if (g.semAdaptacao) {
+        // "Sem Adaptação": grava só essa marcação no próprio modelo (substitui
+        // o campo por completo, sem arrayUnion) e NÃO cria nem liga nenhuma
+        // outra ficha — é justamente pra evitar que "Sem Adaptação" vire um
+        // "modelo" cadastrado por engano.
+        await db.collection('modelos').doc(slugPrincipal).set({
+          marca: marcaNome,
+          modelo: modeloNome,
+          adaptacoes: ['Sem Adaptação']
+        }, { merge: true });
+
+        mesclarModeloNoSistema({ marca: marcaNome, modelo: modeloNome, adaptacoes: ['Sem Adaptação'] });
+        nomesModelosSalvos.push(modeloNome);
+        continue;
+      }
+
+      const nomesAdaptacoes = g.chips.map(c => c.modelo);
 
       // Salva/atualiza o modelo principal com as adaptações escolhidas.
       await db.collection('modelos').doc(slugPrincipal).set({
@@ -913,22 +953,30 @@ adminSalvarBtn.addEventListener('click', async () => {
         adaptacoes: firebase.firestore.FieldValue.arrayUnion(...nomesAdaptacoes)
       }, { merge: true });
 
-      // Ligação recíproca: cada adaptação selecionada (que tem marca conhecida)
-      // recebe o modelo novo/editado como adaptação dela também.
+      // Ligação recíproca EM MALHA: se A foi cadastrado com as adaptações B e
+      // C, então B também precisa ganhar A e C como adaptação, e C precisa
+      // ganhar A e B — as três fichas ficam todas ligadas entre si, não só
+      // de volta pro modelo principal.
       for (const c of g.chips) {
         if (!c.marca) continue; // texto digitado livre, sem ficha própria — não dá pra ligar de volta
+        const ligacoes = new Set([modeloNome, ...g.chips.map(o => o.modelo)]);
+        ligacoes.delete(c.modelo); // não liga o item com ele mesmo
         const slugOutro = normalizarSlugModelo(c.marca, c.modelo);
         await db.collection('modelos').doc(slugOutro).set({
           marca: c.marca,
           modelo: c.modelo,
-          adaptacoes: firebase.firestore.FieldValue.arrayUnion(modeloNome)
+          adaptacoes: firebase.firestore.FieldValue.arrayUnion(...ligacoes)
         }, { merge: true });
       }
 
       // Atualiza a busca na hora, sem precisar recarregar a página.
       mesclarModeloNoSistema({ marca: marcaNome, modelo: modeloNome, adaptacoes: nomesAdaptacoes });
       g.chips.forEach(c => {
-        if (c.marca) mesclarModeloNoSistema({ marca: c.marca, modelo: c.modelo, adaptacoes: [modeloNome] });
+        if (c.marca) {
+          const ligacoes = new Set([modeloNome, ...g.chips.map(o => o.modelo)]);
+          ligacoes.delete(c.modelo);
+          mesclarModeloNoSistema({ marca: c.marca, modelo: c.modelo, adaptacoes: [...ligacoes] });
+        }
       });
       nomesModelosSalvos.push(modeloNome);
     }
