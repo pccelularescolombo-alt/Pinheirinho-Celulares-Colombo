@@ -78,8 +78,25 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // TODO o catálogo de modelos e adaptações mora aqui — tanto o que
+    // já existia (migrado uma vez pela página migrar-dados.html) quanto
+    // o que for cadastrado depois pelo painel "Adicionar / editar
+    // modelo". Cada documento é um modelo (ex: "iPhone 16e") com sua
+    // lista de adaptações compatíveis. O site carrega essa coleção
+    // inteira toda vez que a página abre.
+    match /modelos/{docId} {
+      allow read: if true;
+
+      allow create, update: if request.resource.data.keys().hasOnly(['marca', 'modelo', 'adaptacoes'])
+                            && request.resource.data.marca is string
+                            && request.resource.data.modelo is string
+                            && request.resource.data.adaptacoes is list;
+
+      allow delete: if false;
+    }
+
     // Nega tudo que não seja explicitamente liberado acima (mesma ideia
-    // da regra padrão do Firebase, só que agora com a exceção de cima).
+    // da regra padrão do Firebase, só que agora com as exceções de cima).
     match /{document=**} {
       allow read, write: if false;
     }
@@ -91,11 +108,29 @@ service cloud.firestore {
 
 O QUE ESSAS REGRAS FAZEM
 -------------------------
-- Qualquer pessoa pode LER as avaliações (necessário para mostrar o %
-  na tela).
-- Só é possível ESCREVER incrementando like ou dislike de 1 em 1 —
-  ninguém consegue, mexendo no navegador, zerar os votos de um
-  concorrente ou inflar um número direto.
+- Qualquer pessoa pode LER as avaliações e os modelos cadastrados
+  (necessário para mostrar o % e a busca na tela).
+- Só é possível ESCREVER avaliações incrementando like ou dislike de
+  1 em 1 — ninguém consegue, mexendo no navegador, zerar os votos de
+  um concorrente ou inflar um número direto.
+- Só é possível ESCREVER em "modelos" no formato certo (marca,
+  modelo e lista de adaptações) — não dá pra mandar qualquer outra
+  coisa pro banco.
+
+LIMITAÇÃO IMPORTANTE SOBRE O PAINEL DE ADMIN (leia com atenção)
+-----------------------------------------------------------------
+O botão "Adicionar / editar modelo" pede usuário e senha, mas essa
+senha é só uma trava simples dentro do script.js (variáveis
+ADMIN_USUARIO e ADMIN_SENHA) — ela NÃO é uma autenticação de verdade.
+Qualquer pessoa que abrir o código do site (F12) consegue ver essa
+senha, e as regras acima também não sabem quem está enviando os
+dados, só validam o FORMATO. Ou seja: a senha impede uso por engano
+ou por curiosos, mas não impede alguém tecnicamente capaz de escrever
+direto no Firestore. Para o uso esperado (a própria loja cadastrando
+modelos) isso é suficiente. Se um dia isso virar um problema, a
+solução é migrar para Firebase Authentication (login de verdade, com
+permissão de escrita só pra quem estiver logado) — posso implementar
+depois se precisar.
 
 LIMITAÇÃO IMPORTANTE (leia com atenção)
 -----------------------------------------
@@ -113,6 +148,33 @@ navegador. Posso implementar isso depois se precisar.
 CUSTO
 -----
 O plano gratuito do Firestore (Spark) permite bem mais leituras e
-escritas por dia do que uma loja de películas deve gerar. Não deve
-custar nada, mas se quiser, é possível acompanhar o uso no painel
-"Uso e faturamento" do console do Firebase.
+escritas por dia do que uma loja de películas deve gerar. Como agora
+o site carrega o catálogo inteiro (uns 450 modelos) do banco toda vez
+que a página abre, o número de leituras por dia sobe (1 leitura por
+modelo, por visita). Ainda assim, fica bem longe do limite gratuito
+pra o tráfego esperado de uma loja. Não deve custar nada, mas se
+quiser, é possível acompanhar o uso no painel "Uso e faturamento" do
+console do Firebase.
+
+MIGRAÇÃO ÚNICA DO CATÁLOGO (só precisa fazer uma vez)
+-------------------------------------------------------
+O site enviado junto com este arquivo inclui uma página avulsa,
+"migrar-dados.html", que NÃO faz parte do site (não tem link nenhuma
+página apontando pra ela) — é só uma ferramenta de uso único pra
+subir todo o catálogo que já existia direto no código pro Firestore.
+
+Como usar:
+1) Publique as regras acima primeiro (passo 4 lá em cima).
+2) Abra o arquivo "migrar-dados.html" no navegador (pode ser
+   dando duplo-clique nele mesmo, não precisa estar no ar).
+3) Clique em "Alinhar e migrar tudo agora" e aguarde a lista de
+   progresso terminar com "✅ Migração concluída com sucesso!".
+4) Pronto — pode apagar (ou só guardar de lado) esse arquivo, ele
+   não precisa ficar no site nem ser usado de novo, a não ser que
+   você queira reimportar o catálogo original do zero no futuro.
+
+O que essa página faz, além de enviar os dados: ela também confere,
+modelo por modelo, se toda adaptação está "nos dois sentidos" (se o
+modelo A lista o modelo B como adaptação, garante que B também liste
+A) — isso corrige automaticamente qualquer inconsistência que já
+existisse no catálogo antigo antes de subir tudo pro banco.

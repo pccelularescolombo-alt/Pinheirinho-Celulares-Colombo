@@ -275,6 +275,32 @@ body::before {
   transform: scale(1.1);
 }
 
+.painel-admin-area {
+  margin-bottom: 14px;
+}
+
+.btn-admin {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--azul) 0%, #4a68ff 100%);
+  color: #ffffff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(13, 59, 255, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-admin:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(13, 59, 255, 0.3);
+}
+
 .painel-ordenar {
   display: flex;
   align-items: center;
@@ -376,6 +402,196 @@ body::before {
   .painel-tabela {
     font-size: 12px;
   }
+}
+
+/* ===== Login e formulário de admin (adicionar/editar modelo) ===== */
+.login-modal,
+.admin-modal {
+  max-width: 460px;
+}
+
+.admin-form-group {
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.admin-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.admin-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 500;
+  border-radius: 10px;
+  border: 1px solid var(--card-border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select.admin-input {
+  cursor: pointer;
+}
+
+.admin-input:focus {
+  border-color: var(--azul);
+  box-shadow: 0 0 0 3px rgba(13, 59, 255, 0.15);
+}
+
+.admin-sugestoes {
+  margin-top: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-sugestoes:empty {
+  margin-top: 0;
+}
+
+.admin-sugestao-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.admin-sugestao-item:hover {
+  background: rgba(13, 59, 255, 0.12);
+}
+
+.admin-chips-lista {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 5px 6px 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.admin-chip-remover {
+  border: none;
+  background: rgba(220, 53, 69, 0.15);
+  color: #c62838;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-chip-vazio {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.admin-erro {
+  color: #c62838;
+  background: rgba(220, 53, 69, 0.1);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.admin-sucesso {
+  color: #1c7d38;
+  background: rgba(40, 167, 69, 0.12);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.btn-cancelar {
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-cancelar:hover {
+  background: var(--glass-bg);
+}
+
+.btn-salvar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--azul) 0%, #4a68ff 100%);
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(13, 59, 255, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-salvar:hover {
+  transform: translateY(-2px);
+}
+
+.btn-salvar:disabled {
+  opacity: 0.7;
+  cursor: default;
+  transform: none;
 }
 
 .pesquisa-header {

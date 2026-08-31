@@ -153,6 +153,13 @@
       </button>
     </div>
 
+    <div class="painel-admin-area">
+      <button type="button" class="btn-admin" id="painelAdminBtn">
+        <i class="fas fa-user-lock"></i>
+        Adicionar / editar modelo
+      </button>
+    </div>
+
     <div class="painel-ordenar">
       <span>Ordenar por:</span>
       <button type="button" class="ativo" data-ordem="deslikes"><i class="fas fa-thumbs-down"></i> Mais deslikes</button>
@@ -167,6 +174,75 @@
     </p>
 
     <div id="painelCorpo" class="painel-corpo"></div>
+  </div>
+</div>
+
+<!-- Login do admin (usuário e senha), pra liberar o cadastro de modelo -->
+<div class="painel-overlay" id="loginOverlay">
+  <div class="painel-modal login-modal">
+    <div class="painel-header">
+      <h2><i class="fas fa-lock"></i> Acesso restrito</h2>
+      <button type="button" class="painel-fechar" id="loginFechar" aria-label="Fechar">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+
+    <p class="painel-legenda">Digite o usuário e a senha para adicionar ou editar um modelo no sistema.</p>
+
+    <div class="admin-form-group">
+      <label class="admin-label" for="loginUsuario">Usuário</label>
+      <input type="text" id="loginUsuario" class="admin-input" autocomplete="off">
+    </div>
+    <div class="admin-form-group">
+      <label class="admin-label" for="loginSenha">Senha</label>
+      <input type="password" id="loginSenha" class="admin-input" autocomplete="off">
+    </div>
+
+    <p class="admin-erro" id="loginErro" style="display:none;">Usuário ou senha incorretos.</p>
+
+    <div class="admin-acoes">
+      <button type="button" class="btn-cancelar" id="loginCancelar">Cancelar</button>
+      <button type="button" class="btn-salvar" id="loginEntrar"><i class="fas fa-right-to-bracket"></i> Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Formulário de cadastro/edição de modelo e adaptações -->
+<div class="painel-overlay" id="adminOverlay">
+  <div class="painel-modal admin-modal">
+    <div class="painel-header">
+      <h2><i class="fas fa-mobile-screen-button"></i> Adicionar / editar modelo</h2>
+      <button type="button" class="painel-fechar" id="adminFechar" aria-label="Fechar">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="admin-form-group">
+      <label class="admin-label" for="adminModelo">Modelo (digite pra buscar um já cadastrado ou criar um novo)</label>
+      <input type="text" id="adminModelo" class="admin-input" autocomplete="off" placeholder="Ex: iPhone 16e">
+      <div class="admin-sugestoes" id="adminModeloSugestoes"></div>
+    </div>
+
+    <div class="admin-form-group">
+      <label class="admin-label" for="adminMarca">Marca</label>
+      <select id="adminMarca" class="admin-input"></select>
+      <input type="text" id="adminNovaMarca" class="admin-input" placeholder="Digite o nome da nova marca" style="display:none; margin-top:8px;">
+    </div>
+
+    <div class="admin-form-group">
+      <label class="admin-label" for="adminAdaptacao">Adaptações compatíveis (busque e adicione quantas quiser)</label>
+      <input type="text" id="adminAdaptacao" class="admin-input" autocomplete="off" placeholder="Digite o nome de outro modelo já cadastrado...">
+      <div class="admin-sugestoes" id="adminAdaptSugestoes"></div>
+      <div class="admin-chips-lista" id="adminChipsLista"></div>
+    </div>
+
+    <p class="admin-erro" id="adminErro" style="display:none;"></p>
+    <p class="admin-sucesso" id="adminSucesso" style="display:none;"><i class="fas fa-circle-check"></i> Modelo salvo! Ele já aparece na pesquisa.</p>
+
+    <div class="admin-acoes">
+      <button type="button" class="btn-cancelar" id="adminCancelar">Cancelar</button>
+      <button type="button" class="btn-salvar" id="adminSalvar"><i class="fas fa-floppy-disk"></i> Salvar</button>
+    </div>
   </div>
 </div>
 
