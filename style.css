@@ -277,6 +277,10 @@ body::before {
 
 .painel-admin-area {
   margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .btn-admin {
@@ -299,6 +303,27 @@ body::before {
 .btn-admin:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 26px rgba(13, 59, 255, 0.3);
+}
+
+.btn-sair {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--card-border);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn-sair:hover {
+  background: var(--glass-bg);
+  color: var(--text-primary);
 }
 
 .painel-ordenar {

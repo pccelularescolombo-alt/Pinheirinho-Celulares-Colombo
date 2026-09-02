@@ -569,6 +569,23 @@ const loginUsuarioInput = document.getElementById('loginUsuario');
 const loginSenhaInput = document.getElementById('loginSenha');
 const loginErro = document.getElementById('loginErro');
 const painelAdminBtn = document.getElementById('painelAdminBtn');
+const painelSairBtn = document.getElementById('painelSairBtn');
+
+// Fica logado até a pessoa clicar em "Sair" (ou limpar os dados do
+// navegador) — não pede usuário/senha de novo a cada cadastro.
+const CHAVE_ADMIN_LOGADO = 'pinheirinhoAdminLogado';
+function estaLogado() {
+  return localStorage.getItem(CHAVE_ADMIN_LOGADO) === '1';
+}
+function atualizarBotoesLogin() {
+  const logado = estaLogado();
+  if (painelSairBtn) painelSairBtn.style.display = logado ? 'inline-flex' : 'none';
+  if (painelAdminBtn) {
+    painelAdminBtn.innerHTML = logado
+      ? '<i class="fas fa-mobile-screen-button"></i> Adicionar / editar modelo'
+      : '<i class="fas fa-user-lock"></i> Adicionar / editar modelo';
+  }
+}
 
 function abrirLogin() {
   loginErro.style.display = 'none';
@@ -581,13 +598,27 @@ function fecharLogin() {
   loginOverlay.classList.remove('aberto');
 }
 
-if (painelAdminBtn) painelAdminBtn.addEventListener('click', abrirLogin);
+if (painelAdminBtn) {
+  painelAdminBtn.addEventListener('click', () => {
+    // Se já estiver logado (sessão salva), pula direto pro formulário.
+    if (estaLogado()) abrirAdmin();
+    else abrirLogin();
+  });
+}
+if (painelSairBtn) {
+  painelSairBtn.addEventListener('click', () => {
+    localStorage.removeItem(CHAVE_ADMIN_LOGADO);
+    atualizarBotoesLogin();
+  });
+}
 document.getElementById('loginFechar').addEventListener('click', fecharLogin);
 document.getElementById('loginCancelar').addEventListener('click', fecharLogin);
 loginOverlay.addEventListener('click', (e) => { if (e.target === loginOverlay) fecharLogin(); });
 
 function tentarLogin() {
   if (loginUsuarioInput.value.trim() === ADMIN_USUARIO && loginSenhaInput.value === ADMIN_SENHA) {
+    localStorage.setItem(CHAVE_ADMIN_LOGADO, '1');
+    atualizarBotoesLogin();
     fecharLogin();
     abrirAdmin();
   } else {
@@ -598,6 +629,7 @@ document.getElementById('loginEntrar').addEventListener('click', tentarLogin);
 [loginUsuarioInput, loginSenhaInput].forEach(inp => {
   inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') tentarLogin(); });
 });
+atualizarBotoesLogin();
 
 /* ---------- Formulário de modelo / adaptação ----------
    Suporta cadastrar VÁRIOS modelos de uma vez para a mesma fabricante.
@@ -706,17 +738,42 @@ function renderGruposAdmin() {
 function renderChipsGrupo(i) {
   const el = adminGruposLista.querySelector(`.admin-chips-lista-grupo[data-i="${i}"]`);
   if (!el) return;
-  const chips = adminGrupos[i].chips;
+  const g = adminGrupos[i];
+  const chips = g.chips;
   if (!chips.length) {
     el.innerHTML = '<span class="admin-chip-vazio">Nenhuma adaptação adicionada ainda.</span>';
     return;
   }
-  el.innerHTML = chips.map((c, j) => `
-    <span class="admin-chip">
-      ${c.marca ? `${c.marca} • ${c.modelo}` : c.modelo}
-      <button type="button" data-i="${i}" data-j="${j}" class="admin-chip-remover" title="Remover">&times;</button>
-    </span>
-  `).join('');
+  const marcaAtualForm = adminMarcaSelect.value === '__nova__' ? adminNovaMarcaInput.value.trim() : adminMarcaSelect.value;
+  const marcasDisponiveis = [...new Set([marcaAtualForm, ...dados.map(d => d.marca)])].filter(Boolean).sort();
+  el.innerHTML = chips.map((c, j) => {
+    if (c.marca) {
+      // Já é uma ficha existente no sistema — marca fixa, não dá pra trocar.
+      return `
+        <span class="admin-chip">
+          ${escaparHtml(c.marca)} • ${escaparHtml(c.modelo)}
+          <button type="button" data-i="${i}" data-j="${j}" class="admin-chip-remover" title="Remover">&times;</button>
+        </span>`;
+    }
+    if (!g.criarNovasFichas) {
+      // Texto livre e "criar ficha" desmarcado — só aparece como texto.
+      return `
+        <span class="admin-chip">
+          ${escaparHtml(c.modelo)}
+          <button type="button" data-i="${i}" data-j="${j}" class="admin-chip-remover" title="Remover">&times;</button>
+        </span>`;
+    }
+    // Texto livre e "criar ficha" marcado — deixa escolher de qual
+    // fabricante é essa adaptação nova (pode ser outra marca).
+    return `
+      <span class="admin-chip admin-chip-com-select">
+        <select class="admin-chip-marca-select" data-i="${i}" data-j="${j}">
+          ${marcasDisponiveis.map(f => `<option value="${escaparHtml(f)}" ${c.marcaNova === f ? 'selected' : ''}>${escaparHtml(f)}</option>`).join('')}
+        </select>
+        • ${escaparHtml(c.modelo)}
+        <button type="button" data-i="${i}" data-j="${j}" class="admin-chip-remover" title="Remover">&times;</button>
+      </span>`;
+  }).join('');
 }
 
 function renderModeloSugestoesGrupo(i, achados) {
@@ -751,6 +808,24 @@ function selecionarModeloExistenteGrupo(i, item) {
         return { marca: origem ? origem.marca : null, modelo: a };
       })
     : [];
+
+  // A fabricante do formulário é ÚNICA pra todos os grupos (é o que o rótulo
+  // "vale para todos os modelos abaixo" quer dizer). Se ela não bater com a
+  // marca de verdade do modelo escolhido, o ID calculado na hora de salvar
+  // fica diferente do documento original — e como não é possível apagar
+  // documentos (regra do Firestore), isso cria uma ficha nova e deixa a
+  // antiga esquecida no banco, parecendo "duplicado". Por isso, ao escolher
+  // um modelo já existente, sincroniza a fabricante do formulário com a
+  // marca real dele automaticamente.
+  const marcaAtualForm = adminMarcaSelect.value === '__nova__' ? adminNovaMarcaInput.value.trim() : adminMarcaSelect.value;
+  if (item.marca && item.marca !== marcaAtualForm) {
+    const opcaoExiste = [...adminMarcaSelect.options].some(o => o.value === item.marca);
+    if (opcaoExiste) {
+      adminMarcaSelect.value = item.marca;
+      adminNovaMarcaInput.style.display = 'none';
+    }
+  }
+
   // Precisa re-renderizar tudo (não só os chips) pra refletir a marcação
   // "Sem Adaptação" e mostrar/esconder o campo de adaptações corretamente.
   renderGruposAdmin();
@@ -832,6 +907,16 @@ adminGruposLista.addEventListener('change', (e) => {
 
   if (e.target.classList.contains('admin-criar-fichas-check')) {
     adminGrupos[i].criarNovasFichas = e.target.checked;
+    // Precisa re-renderizar os chips pra mostrar/esconder os seletores de
+    // fabricante das adaptações digitadas sem ficha própria ainda.
+    renderChipsGrupo(i);
+    return;
+  }
+
+  if (e.target.classList.contains('admin-chip-marca-select')) {
+    const j = Number(e.target.dataset.j);
+    if (Number.isNaN(j) || !adminGrupos[i].chips[j]) return;
+    adminGrupos[i].chips[j].marcaNova = e.target.value;
   }
 });
 
@@ -848,9 +933,10 @@ adminGruposLista.addEventListener('keydown', (e) => {
     // a ligação recíproca é criada ao salvar, igual quando se clica na
     // sugestão da lista, mesmo que o usuário só tenha apertado Enter.
     const existente = dados.find(d => normalizar(d.modelo) === normalizar(texto));
+    const marcaAtualForm = adminMarcaSelect.value === '__nova__' ? adminNovaMarcaInput.value.trim() : adminMarcaSelect.value;
     adminGrupos[i].chips.push(existente
       ? { marca: existente.marca, modelo: existente.modelo }
-      : { marca: null, modelo: texto });
+      : { marca: null, modelo: texto, marcaNova: marcaAtualForm }); // marcaNova = fabricante padrão sugerida, editável pelo seletor
   }
   e.target.value = '';
   renderAdaptSugestoesGrupo(i, []);
@@ -939,6 +1025,24 @@ adminSalvarBtn.addEventListener('click', async () => {
     return;
   }
 
+  // Se algum grupo começou a partir de um modelo já existente e o nome (ou a
+  // fabricante) foi alterado depois, o ID salvo no Firestore muda — e como
+  // não é permitido apagar documentos, a ficha antiga fica esquecida no
+  // banco (parece "duplicada"). Avisa antes de salvar pra dar chance de
+  // corrigir.
+  const renomeados = adminGrupos
+    .filter(g => g.modeloExistente)
+    .filter(g => normalizarSlugModelo(g.modeloExistente.marca, g.modeloExistente.modelo) !== normalizarSlugModelo(marcaNome, g.modelo.trim()));
+  if (renomeados.length) {
+    const lista = renomeados.map(g => `"${g.modeloExistente.marca} • ${g.modeloExistente.modelo}" → "${marcaNome} • ${g.modelo.trim()}"`).join('\n');
+    const continuar = confirm(
+      `Você mudou o nome ou a fabricante de um modelo que já existia:\n\n${lista}\n\n` +
+      `Isso vai criar uma ficha NOVA com o nome atualizado, e a ficha antiga vai continuar no banco ` +
+      `(o sistema não apaga fichas automaticamente). Quer continuar mesmo assim?`
+    );
+    if (!continuar) return;
+  }
+
   adminSalvarBtn.disabled = true;
   adminSalvarBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
 
@@ -980,10 +1084,10 @@ adminSalvarBtn.addEventListener('click', async () => {
       // de volta pro modelo principal.
       // Se "c.marca" não veio de uma ficha existente (texto digitado livre),
       // só criamos a ficha nova pra ele quando o admin marcou a opção
-      // "criar ficha própria" — nesse caso assumimos a mesma fabricante do
-      // modelo principal, já que o formulário não pede marca por adaptação.
+      // "criar ficha própria" — usando a fabricante escolhida no seletor de
+      // cada chip (pode ser a mesma do modelo principal ou outra qualquer).
       for (const c of g.chips) {
-        const marcaLigacao = c.marca || (g.criarNovasFichas ? marcaNome : null);
+        const marcaLigacao = c.marca || (g.criarNovasFichas ? (c.marcaNova || marcaNome) : null);
         if (!marcaLigacao) continue; // texto digitado livre e "criar ficha" desmarcado — não dá pra ligar de volta
         const ligacoes = new Set([modeloNome, ...g.chips.map(o => o.modelo)]);
         ligacoes.delete(c.modelo); // não liga o item com ele mesmo
